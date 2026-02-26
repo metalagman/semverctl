@@ -1,0 +1,31 @@
+tool:
+  name: semverctl
+  main: ./cmd/semverctl/main.go
+version:
+  source: git-tag
+targets:
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  - os: win32
+    arch: amd64
+build:
+  ldflags: >
+    -s -w
+    -X github.com/metalagman/semverctl/internal/cli.version={{.Version}}
+    -X github.com/metalagman/semverctl/internal/cli.gitCommit={{.GitCommit}}
+    -X github.com/metalagman/semverctl/internal/cli.buildDate={{.BuildDate}}
+  tags: []
+  cgo: false
+distributions:
+  npm:
+    package: '@metalagman/semverctl'
+    registry: https://registry.npmjs.org
+    access: public
+  uv:
+    package: semverctl

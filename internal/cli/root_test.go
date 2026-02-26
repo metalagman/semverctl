@@ -2,6 +2,8 @@ package cli
 
 import (
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestGetVersion(t *testing.T) {
@@ -73,5 +75,38 @@ func TestRootCmd(t *testing.T) {
 	}
 	if !hasSet {
 		t.Error("rootCmd should have 'set' subcommand")
+	}
+}
+
+func TestVersionCmd(t *testing.T) {
+	// Test that version command exists and has proper structure
+	var versionCmdFound *cobra.Command
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "version" {
+			versionCmdFound = cmd
+			break
+		}
+	}
+
+	if versionCmdFound == nil {
+		t.Fatal("version command not found")
+	}
+
+	if versionCmdFound.Short != "Print version information" {
+		t.Errorf("versionCmd.Short = %v, want 'Print version information'", versionCmdFound.Short)
+	}
+}
+
+func TestVersionVariables(t *testing.T) {
+	// Test that default values work correctly
+	// These are the default values when no ldflags are provided
+	if version != "dev" {
+		t.Logf("Note: version variable is %q (may be set by ldflags during build)", version)
+	}
+	if gitCommit != "unknown" {
+		t.Logf("Note: gitCommit variable is %q (may be set by ldflags during build)", gitCommit)
+	}
+	if buildDate != "unknown" {
+		t.Logf("Note: buildDate variable is %q (may be set by ldflags during build)", buildDate)
 	}
 }

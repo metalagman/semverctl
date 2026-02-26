@@ -122,6 +122,43 @@ go test ./...
 golangci-lint run ./...
 ```
 
+## Releasing
+
+This project uses [Omnidist](https://github.com/omnidist/omnidist) for cross-platform distribution.
+
+### Creating a Release
+
+1. Tag the release:
+   ```bash
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git push origin v1.0.0
+   ```
+
+2. The GitHub Actions workflow will automatically:
+   - Build binaries for all platforms
+   - Stage artifacts
+   - Publish to npm as `@metalagman/semverctl`
+   - Create a GitHub Release
+
+### Installation from Package Managers
+
+**npm:**
+```bash
+npx @metalagman/semverctl version
+```
+
+**Local build with Omnidist:**
+```bash
+# Build for all platforms
+omnidist build
+
+# Stage artifacts
+omnidist stage
+
+# Verify
+omnidist verify
+```
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.

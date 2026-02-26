@@ -27,7 +27,7 @@ func NewResolver(roots []string) *Resolver {
 func (r *Resolver) Resolve(file string) ([]string, error) {
 	info, err := os.Stat(file)
 	if err != nil {
-		return nil, fmt.Errorf("file not found: %s", file)
+		return nil, fmt.Errorf("stat %q: %w", file, err)
 	}
 	if info.IsDir() {
 		return nil, fmt.Errorf("path is a directory: %s", file)
@@ -57,7 +57,7 @@ func (r *Resolver) ResolveGlob(pattern string) ([]string, error) {
 			// Check if it's a directory
 			info, err := os.Stat(fullPath)
 			if err != nil {
-				continue // Skip files we can't stat
+				return nil, fmt.Errorf("stat %q: %w", fullPath, err)
 			}
 			if info.IsDir() {
 				continue // Skip directories

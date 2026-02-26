@@ -3,6 +3,7 @@ package formats
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strings"
 
@@ -78,17 +79,7 @@ func (c *JSONCodec) GetNumericScalar(data any, path []string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	switch v := val.(type) {
-	case float64:
-		return int64(v), nil
-	case int:
-		return int64(v), nil
-	case int64:
-		return v, nil
-	default:
-		return 0, fmt.Errorf("value at path %s is not numeric (got %T)", pathx.Join(path), val)
-	}
+	return numericScalarToInt64(val, path)
 }
 
 // SetNumericScalar updates a numeric value at the given path.
@@ -166,20 +157,33 @@ func (c *YAMLCodec) GetNumericScalar(data any, path []string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	return numericScalarToInt64(val, path)
+}
 
+// SetNumericScalar updates a numeric value at the given path.
+func (c *YAMLCodec) SetNumericScalar(data any, path []string, value int64) error {
+	return pathx.Set(data, path, value)
+}
+
+func numericScalarToInt64(val any, path []string) (int64, error) {
 	switch v := val.(type) {
 	case int:
 		return int64(v), nil
 	case int64:
 		return v, nil
 	case float64:
-		return int64(v), nil
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return 0, fmt.Errorf("value at path %s is not a finite number", pathx.Join(path))
+		}
+		if math.Trunc(v) != v {
+			return 0, fmt.Errorf("value at path %s must be an integer (got %v)", pathx.Join(path), v)
+		}
+		i := int64(v)
+		if float64(i) != v {
+			return 0, fmt.Errorf("value at path %s is out of int64 range (got %v)", pathx.Join(path), v)
+		}
+		return i, nil
 	default:
 		return 0, fmt.Errorf("value at path %s is not numeric (got %T)", pathx.Join(path), val)
 	}
-}
-
-// SetNumericScalar updates a numeric value at the given path.
-func (c *YAMLCodec) SetNumericScalar(data any, path []string, value int64) error {
-	return pathx.Set(data, path, value)
 }

@@ -6,6 +6,13 @@ import (
 	"testing"
 )
 
+func writeFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -148,7 +155,7 @@ func TestRunner_Run(t *testing.T) {
 	// Create temp test file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644)
+	writeFile(t, testFile, []byte(`{"version": "1.0.0"}`))
 
 	t.Run("bump patch dry run", func(t *testing.T) {
 		config := &Config{
@@ -182,7 +189,7 @@ func TestRunner_Run(t *testing.T) {
 
 	t.Run("numeric bump dry run", func(t *testing.T) {
 		numericFile := filepath.Join(tmpDir, "numeric.json")
-		os.WriteFile(numericFile, []byte(`{"count": 42}`), 0o644)
+		writeFile(t, numericFile, []byte(`{"count": 42}`))
 
 		config := &Config{
 			Operation:   OpBump,
@@ -214,7 +221,7 @@ func TestRunner_Run(t *testing.T) {
 
 	t.Run("invalid json", func(t *testing.T) {
 		invalidFile := filepath.Join(tmpDir, "invalid.json")
-		os.WriteFile(invalidFile, []byte(`{invalid`), 0o644)
+		writeFile(t, invalidFile, []byte(`{invalid`))
 
 		config := &Config{
 			Operation: OpBump,
@@ -246,7 +253,7 @@ func TestRunner_Run(t *testing.T) {
 
 	t.Run("invalid semver", func(t *testing.T) {
 		invalidVerFile := filepath.Join(tmpDir, "invalidver.json")
-		os.WriteFile(invalidVerFile, []byte(`{"version": "not-a-version"}`), 0o644)
+		writeFile(t, invalidVerFile, []byte(`{"version": "not-a-version"}`))
 
 		config := &Config{
 			Operation: OpBump,
@@ -265,8 +272,8 @@ func TestRunner_Run(t *testing.T) {
 
 func TestRunner_Run_Glob(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.WriteFile(filepath.Join(tmpDir, "test1.json"), []byte(`{"version": "1.0.0"}`), 0o644)
-	os.WriteFile(filepath.Join(tmpDir, "test2.json"), []byte(`{"version": "1.0.0"}`), 0o644)
+	writeFile(t, filepath.Join(tmpDir, "test1.json"), []byte(`{"version": "1.0.0"}`))
+	writeFile(t, filepath.Join(tmpDir, "test2.json"), []byte(`{"version": "1.0.0"}`))
 
 	t.Run("glob pattern", func(t *testing.T) {
 		config := &Config{

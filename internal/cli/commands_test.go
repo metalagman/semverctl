@@ -8,10 +8,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func setFlag(t *testing.T, cmd *cobra.Command, name, value string) {
+	t.Helper()
+	if err := cmd.Flags().Set(name, value); err != nil {
+		t.Fatalf("set flag %q=%q: %v", name, value, err)
+	}
+}
+
 func TestRunBump(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644)
+	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -21,7 +30,7 @@ func TestRunBump(t *testing.T) {
 	}{
 		{
 			name:    "missing file",
-			args:    []string{},
+			args:    []string{filepath.Join(tmpDir, "missing.json")},
 			flags:   map[string]string{},
 			wantErr: true,
 		},
@@ -58,16 +67,8 @@ func TestRunBump(t *testing.T) {
 			cmd.Flags().Bool("numeric", false, "")
 
 			for k, v := range tt.flags {
-				cmd.Flags().Set(k, v)
+				setFlag(t, cmd, k, v)
 			}
-
-			// Reset global flags for each test
-			flagFile = ""
-			flagGlob = ""
-			flagMajor = false
-			flagMinor = false
-			flagPatch = false
-			flagNumericBump = false
 
 			err := runBump(cmd, tt.args)
 			if (err != nil) != tt.wantErr {
@@ -77,10 +78,44 @@ func TestRunBump(t *testing.T) {
 	}
 }
 
+func TestRunBump_MultipleRootsDefaultGlob(t *testing.T) {
+	root1 := filepath.Join(t.TempDir(), "a")
+	root2 := filepath.Join(t.TempDir(), "b")
+	if err := os.MkdirAll(root1, 0o755); err != nil {
+		t.Fatalf("mkdir root1: %v", err)
+	}
+	if err := os.MkdirAll(root2, 0o755); err != nil {
+		t.Fatalf("mkdir root2: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root1, "one.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write root1 file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root2, "two.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write root2 file: %v", err)
+	}
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("path", "version", "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("major", false, "")
+	cmd.Flags().Bool("minor", false, "")
+	cmd.Flags().Bool("patch", false, "")
+	cmd.Flags().Bool("numeric", false, "")
+	setFlag(t, cmd, "dry-run", "true")
+
+	if err := runBump(cmd, []string{root1, root2}); err != nil {
+		t.Fatalf("runBump() with multiple roots returned error: %v", err)
+	}
+}
+
 func TestRunSet(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644)
+	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -111,12 +146,8 @@ func TestRunSet(t *testing.T) {
 			cmd.Flags().Bool("dry-run", false, "")
 
 			for k, v := range tt.flags {
-				cmd.Flags().Set(k, v)
+				setFlag(t, cmd, k, v)
 			}
-
-			// Reset global flags
-			flagFile = ""
-			flagGlob = ""
 
 			err := runSet(cmd, tt.args)
 			if (err != nil) != tt.wantErr {

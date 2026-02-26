@@ -109,6 +109,14 @@ func TestJSONCodec(t *testing.T) {
 		}
 	})
 
+	t.Run("GetNumericScalar non-integer float", func(t *testing.T) {
+		data := map[string]any{"count": 42.5}
+		_, err := codec.GetNumericScalar(data, []string{"count"})
+		if err == nil {
+			t.Error("GetNumericScalar() should error on non-integer float")
+		}
+	})
+
 	t.Run("SetNumericScalar", func(t *testing.T) {
 		data := map[string]any{"count": float64(42)}
 		err := codec.SetNumericScalar(data, []string{"count"}, 43)
@@ -189,6 +197,14 @@ func TestYAMLCodec(t *testing.T) {
 		}
 		if val != 42 {
 			t.Errorf("GetNumericScalar() = %v, want 42", val)
+		}
+	})
+
+	t.Run("GetNumericScalar non-integer float", func(t *testing.T) {
+		data := map[string]any{"count": 42.5}
+		_, err := codec.GetNumericScalar(data, []string{"count"})
+		if err == nil {
+			t.Error("GetNumericScalar() should error on non-integer float")
 		}
 	})
 

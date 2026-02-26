@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -10,27 +9,17 @@ import (
 	"github.com/metalagman/semverctl/internal/pathx"
 )
 
+// MinimumNArgsWithHelp returns an args validator that prints help before
+// returning an error when too few positional args are provided.
 func MinimumNArgsWithHelp(n int) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if len(args) < n {
-			cmd.Help()
-			fmt.Println()
-			os.Exit(1)
+			_ = cmd.Help()
+			return fmt.Errorf("requires at least %d arg(s)", n)
 		}
 		return nil
 	}
 }
-
-var (
-	flagPath        string
-	flagFile        string
-	flagGlob        string
-	flagDryRun      bool
-	flagMajor       bool
-	flagMinor       bool
-	flagPatch       bool
-	flagNumericBump bool
-)
 
 func init() {
 	// Bump command
@@ -51,14 +40,14 @@ Examples:
 		RunE: runBump,
 	}
 
-	bumpCmd.Flags().StringVar(&flagPath, "path", "version", "Dot-path to version field (e.g., .version, .app.version)")
-	bumpCmd.Flags().StringVar(&flagFile, "file", "", "Specific file to process")
-	bumpCmd.Flags().StringVar(&flagGlob, "glob", "", "Glob pattern for matching files (e.g., '**/*.json')")
-	bumpCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "Show diffs without modifying files")
-	bumpCmd.Flags().BoolVar(&flagMajor, "major", false, "Bump major version")
-	bumpCmd.Flags().BoolVar(&flagMinor, "minor", false, "Bump minor version")
-	bumpCmd.Flags().BoolVar(&flagPatch, "patch", false, "Bump patch version (default)")
-	bumpCmd.Flags().BoolVar(&flagNumericBump, "numeric", false, "Bump numeric scalar by +1 (for object-style versions)")
+	bumpCmd.Flags().String("path", "version", "Dot-path to version field (e.g., .version, .app.version)")
+	bumpCmd.Flags().String("file", "", "Specific file to process")
+	bumpCmd.Flags().String("glob", "", "Glob pattern for matching files (e.g., '**/*.json')")
+	bumpCmd.Flags().Bool("dry-run", false, "Show diffs without modifying files")
+	bumpCmd.Flags().Bool("major", false, "Bump major version")
+	bumpCmd.Flags().Bool("minor", false, "Bump minor version")
+	bumpCmd.Flags().Bool("patch", false, "Bump patch version (default)")
+	bumpCmd.Flags().Bool("numeric", false, "Bump numeric scalar by +1 (for object-style versions)")
 
 	rootCmd.AddCommand(bumpCmd)
 
@@ -76,40 +65,110 @@ Examples:
 		RunE: runSet,
 	}
 
-	setCmd.Flags().StringVar(&flagPath, "path", "version", "Dot-path to version field (e.g., .version, .app.version)")
-	setCmd.Flags().StringVar(&flagFile, "file", "", "Specific file to process")
-	setCmd.Flags().StringVar(&flagGlob, "glob", "", "Glob pattern for matching files (e.g., '**/*.json')")
-	setCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "Show diffs without modifying files")
+	setCmd.Flags().String("path", "version", "Dot-path to version field (e.g., .version, .app.version)")
+	setCmd.Flags().String("file", "", "Specific file to process")
+	setCmd.Flags().String("glob", "", "Glob pattern for matching files (e.g., '**/*.json')")
+	setCmd.Flags().Bool("dry-run", false, "Show diffs without modifying files")
 
 	rootCmd.AddCommand(setCmd)
 }
 
+type bumpFlags struct {
+	path        string
+	file        string
+	glob        string
+	dryRun      bool
+	major       bool
+	minor       bool
+	patch       bool
+	numericBump bool
+}
+
+func loadBumpFlags(cmd *cobra.Command) (bumpFlags, error) {
+	var f bumpFlags
+	var err error
+
+	if f.path, err = cmd.Flags().GetString("path"); err != nil {
+		return f, fmt.Errorf("get --path: %w", err)
+	}
+	if f.file, err = cmd.Flags().GetString("file"); err != nil {
+		return f, fmt.Errorf("get --file: %w", err)
+	}
+	if f.glob, err = cmd.Flags().GetString("glob"); err != nil {
+		return f, fmt.Errorf("get --glob: %w", err)
+	}
+	if f.dryRun, err = cmd.Flags().GetBool("dry-run"); err != nil {
+		return f, fmt.Errorf("get --dry-run: %w", err)
+	}
+	if f.major, err = cmd.Flags().GetBool("major"); err != nil {
+		return f, fmt.Errorf("get --major: %w", err)
+	}
+	if f.minor, err = cmd.Flags().GetBool("minor"); err != nil {
+		return f, fmt.Errorf("get --minor: %w", err)
+	}
+	if f.patch, err = cmd.Flags().GetBool("patch"); err != nil {
+		return f, fmt.Errorf("get --patch: %w", err)
+	}
+	if f.numericBump, err = cmd.Flags().GetBool("numeric"); err != nil {
+		return f, fmt.Errorf("get --numeric: %w", err)
+	}
+	return f, nil
+}
+
+type setFlags struct {
+	path   string
+	file   string
+	glob   string
+	dryRun bool
+}
+
+func loadSetFlags(cmd *cobra.Command) (setFlags, error) {
+	var f setFlags
+	var err error
+
+	if f.path, err = cmd.Flags().GetString("path"); err != nil {
+		return f, fmt.Errorf("get --path: %w", err)
+	}
+	if f.file, err = cmd.Flags().GetString("file"); err != nil {
+		return f, fmt.Errorf("get --file: %w", err)
+	}
+	if f.glob, err = cmd.Flags().GetString("glob"); err != nil {
+		return f, fmt.Errorf("get --glob: %w", err)
+	}
+	if f.dryRun, err = cmd.Flags().GetBool("dry-run"); err != nil {
+		return f, fmt.Errorf("get --dry-run: %w", err)
+	}
+	return f, nil
+}
+
 func runBump(cmd *cobra.Command, args []string) error {
+	flags, err := loadBumpFlags(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Validate flags
-	if flagNumericBump {
-		if flagMajor || flagMinor || flagPatch {
+	if flags.numericBump {
+		if flags.major || flags.minor || flags.patch {
 			return fmt.Errorf("cannot use --major/--minor/--patch with --numeric")
 		}
 	} else {
-		// Check if any bump type flag was explicitly set
 		majorSet := cmd.Flags().Changed("major")
 		minorSet := cmd.Flags().Changed("minor")
 		patchSet := cmd.Flags().Changed("patch")
 
-		// Default to patch if no bump type explicitly specified
 		if !majorSet && !minorSet && !patchSet {
-			flagPatch = true
+			flags.patch = true
 		}
 
-		// Validate only one bump type
 		bumpTypes := 0
-		if flagMajor {
+		if flags.major {
 			bumpTypes++
 		}
-		if flagMinor {
+		if flags.minor {
 			bumpTypes++
 		}
-		if flagPatch {
+		if flags.patch {
 			bumpTypes++
 		}
 		if bumpTypes > 1 {
@@ -117,83 +176,96 @@ func runBump(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Determine bump type (only for non-numeric bumps)
 	bumpType := ""
-	if !flagNumericBump {
+	if !flags.numericBump {
 		bumpType = "patch"
-		if flagMajor {
+		if flags.major {
 			bumpType = "major"
-		} else if flagMinor {
+		} else if flags.minor {
 			bumpType = "minor"
 		}
 	}
 
-	// Parse path
-	path, err := pathx.Parse(flagPath)
+	path, err := pathx.Parse(flags.path)
 	if err != nil {
-		return fmt.Errorf("invalid path %q: %w", flagPath, err)
+		return fmt.Errorf("invalid path %q: %w", flags.path, err)
 	}
 
-	// Validate file/glob
-	if flagFile == "" && flagGlob == "" {
-		// Use positional args as roots with default glob
-		if len(args) == 0 {
-			args = []string{"."}
-		}
-		flagGlob = "**/*.json"
-		if len(args) > 0 {
-			flagFile = args[0]
-			args = args[1:]
+	file := flags.file
+	glob := flags.glob
+	roots := append([]string(nil), args...)
+	if file != "" && len(roots) > 0 {
+		return fmt.Errorf("cannot use positional roots with --file")
+	}
+
+	if file == "" && glob == "" {
+		switch len(roots) {
+		case 0:
+			roots = []string{"."}
+			glob = "**/*.json"
+		case 1:
+			file = roots[0]
+			roots = nil
+		default:
+			glob = "**/*.json"
 		}
 	}
 
-	// Build config
 	config := &app.Config{
 		Operation:   app.OpBump,
 		BumpType:    bumpType,
 		Path:        path,
-		File:        flagFile,
-		Glob:        flagGlob,
-		Roots:       args,
-		DryRun:      flagDryRun,
-		NumericBump: flagNumericBump,
+		File:        file,
+		Glob:        glob,
+		Roots:       roots,
+		DryRun:      flags.dryRun,
+		NumericBump: flags.numericBump,
 	}
 
-	runner := app.NewRunner(config)
-	return runner.Run()
+	return app.NewRunner(config).Run()
 }
 
 func runSet(cmd *cobra.Command, args []string) error {
-	version := args[0]
-	roots := args[1:]
-
-	// Parse path
-	path, err := pathx.Parse(flagPath)
+	flags, err := loadSetFlags(cmd)
 	if err != nil {
-		return fmt.Errorf("invalid path %q: %w", flagPath, err)
+		return err
 	}
 
-	// Validate file/glob
-	if flagFile == "" && flagGlob == "" {
-		// Use positional args
-		if len(roots) == 0 {
+	version := args[0]
+	roots := append([]string(nil), args[1:]...)
+
+	path, err := pathx.Parse(flags.path)
+	if err != nil {
+		return fmt.Errorf("invalid path %q: %w", flags.path, err)
+	}
+
+	file := flags.file
+	glob := flags.glob
+	if file != "" && len(roots) > 0 {
+		return fmt.Errorf("cannot use positional roots with --file")
+	}
+
+	if file == "" && glob == "" {
+		switch len(roots) {
+		case 0:
 			return fmt.Errorf("must specify a file or glob pattern")
+		case 1:
+			file = roots[0]
+			roots = nil
+		default:
+			glob = "**/*.json"
 		}
-		flagFile = roots[0]
-		roots = roots[1:]
 	}
 
-	// Build config
 	config := &app.Config{
 		Operation: app.OpSet,
 		Version:   version,
 		Path:      path,
-		File:      flagFile,
-		Glob:      flagGlob,
+		File:      file,
+		Glob:      glob,
 		Roots:     roots,
-		DryRun:    flagDryRun,
+		DryRun:    flags.dryRun,
 	}
 
-	runner := app.NewRunner(config)
-	return runner.Run()
+	return app.NewRunner(config).Run()
 }

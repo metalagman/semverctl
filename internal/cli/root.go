@@ -33,6 +33,7 @@ Examples:
   semverctl set 1.2.3 --file package.json`,
 }
 
+// Execute runs the root CLI command.
 func Execute() error {
 	return rootCmd.Execute()
 }

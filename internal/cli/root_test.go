@@ -29,14 +29,15 @@ func TestGetBuildDate(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	// Test that Execute doesn't panic
-	// This is a basic smoke test - in production, you'd test actual command execution
-	// but that requires more setup (temp files, etc.)
-
-	// We can't easily test Execute() without mocking, but we can ensure
-	// the command structure is valid by checking that the root command exists
 	if rootCmd == nil {
-		t.Error("rootCmd should not be nil")
+		t.Fatal("rootCmd should not be nil")
+	}
+
+	rootCmd.SetArgs([]string{"version"})
+	defer rootCmd.SetArgs(nil)
+
+	if err := Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
 	}
 }
 
@@ -109,4 +110,20 @@ func TestVersionVariables(t *testing.T) {
 	if buildDate != "unknown" {
 		t.Logf("Note: buildDate variable is %q (may be set by ldflags during build)", buildDate)
 	}
+}
+
+func TestMinimumNArgsWithHelp(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+
+	t.Run("enough args", func(t *testing.T) {
+		if err := MinimumNArgsWithHelp(1)(cmd, []string{"ok"}); err != nil {
+			t.Fatalf("validator returned error for valid args: %v", err)
+		}
+	})
+
+	t.Run("too few args", func(t *testing.T) {
+		if err := MinimumNArgsWithHelp(2)(cmd, []string{"only-one"}); err == nil {
+			t.Fatal("validator should return error when args are missing")
+		}
+	})
 }

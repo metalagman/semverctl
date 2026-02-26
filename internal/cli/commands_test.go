@@ -157,6 +157,92 @@ func TestRunSet(t *testing.T) {
 	}
 }
 
+func TestRunBump_FileWithPositionalRoots(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("path", "version", "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("major", false, "")
+	cmd.Flags().Bool("minor", false, "")
+	cmd.Flags().Bool("patch", false, "")
+	cmd.Flags().Bool("numeric", false, "")
+	setFlag(t, cmd, "file", "test.json")
+
+	if err := runBump(cmd, []string{"."}); err == nil {
+		t.Fatal("runBump() should error when --file and positional roots are both provided")
+	}
+}
+
+func TestRunSet_MultipleRootsDefaultGlob(t *testing.T) {
+	root1 := filepath.Join(t.TempDir(), "a")
+	root2 := filepath.Join(t.TempDir(), "b")
+	if err := os.MkdirAll(root1, 0o755); err != nil {
+		t.Fatalf("mkdir root1: %v", err)
+	}
+	if err := os.MkdirAll(root2, 0o755); err != nil {
+		t.Fatalf("mkdir root2: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root1, "one.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write root1 file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root2, "two.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write root2 file: %v", err)
+	}
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("path", "version", "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().Bool("dry-run", false, "")
+	setFlag(t, cmd, "dry-run", "true")
+
+	if err := runSet(cmd, []string{"2.0.0", root1, root2}); err != nil {
+		t.Fatalf("runSet() with multiple roots returned error: %v", err)
+	}
+}
+
+func TestRunSet_FileWithPositionalRoots(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("path", "version", "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().Bool("dry-run", false, "")
+	setFlag(t, cmd, "file", "test.json")
+
+	if err := runSet(cmd, []string{"1.2.3", "."}); err == nil {
+		t.Fatal("runSet() should error when --file and positional roots are both provided")
+	}
+}
+
+func TestLoadBumpFlagsErrors(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().Int("path", 0, "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("major", false, "")
+	cmd.Flags().Bool("minor", false, "")
+	cmd.Flags().Bool("patch", false, "")
+	cmd.Flags().Bool("numeric", false, "")
+
+	if _, err := loadBumpFlags(cmd); err == nil {
+		t.Fatal("loadBumpFlags() should error when path flag has wrong type")
+	}
+}
+
+func TestLoadSetFlagsErrors(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("path", "version", "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().String("dry-run", "false", "")
+
+	if _, err := loadSetFlags(cmd); err == nil {
+		t.Fatal("loadSetFlags() should error when dry-run flag has wrong type")
+	}
+}
+
 func TestBumpCommandFlags(t *testing.T) {
 	// Test that bump command has all expected flags
 	bumpCmd := &cobra.Command{

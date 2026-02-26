@@ -1,6 +1,7 @@
 package formats
 
 import (
+	"math"
 	"testing"
 )
 
@@ -117,6 +118,14 @@ func TestJSONCodec(t *testing.T) {
 		}
 	})
 
+	t.Run("GetNumericScalar non-finite", func(t *testing.T) {
+		data := map[string]any{"count": math.Inf(1)}
+		_, err := codec.GetNumericScalar(data, []string{"count"})
+		if err == nil {
+			t.Error("GetNumericScalar() should error on infinity")
+		}
+	})
+
 	t.Run("SetNumericScalar", func(t *testing.T) {
 		data := map[string]any{"count": float64(42)}
 		err := codec.SetNumericScalar(data, []string{"count"}, 43)
@@ -205,6 +214,14 @@ func TestYAMLCodec(t *testing.T) {
 		_, err := codec.GetNumericScalar(data, []string{"count"})
 		if err == nil {
 			t.Error("GetNumericScalar() should error on non-integer float")
+		}
+	})
+
+	t.Run("GetNumericScalar non-finite", func(t *testing.T) {
+		data := map[string]any{"count": math.NaN()}
+		_, err := codec.GetNumericScalar(data, []string{"count"})
+		if err == nil {
+			t.Error("GetNumericScalar() should error on NaN")
 		}
 	})
 

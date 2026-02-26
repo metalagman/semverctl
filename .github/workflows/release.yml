@@ -31,6 +31,11 @@ jobs:
         with:
           name: omnidist-staged
           path: omnidist-staged.tgz
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/**/*
 
   publish_npm:
     needs: prepare
@@ -74,3 +79,30 @@ jobs:
         run: tar -xzf omnidist-staged.tgz
       - name: Publish uv artifacts
         run: omnidist uv publish
+
+  release:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,8 +1,64 @@
 # semverctl
 
+[![Tests](https://github.com/metalagman/semverctl/workflows/Test/badge.svg)](https://github.com/metalagman/semverctl/actions/workflows/test.yml)
+[![Lint](https://github.com/metalagman/semverctl/workflows/Lint/badge.svg)](https://github.com/metalagman/semverctl/actions/workflows/lint.yml)
+[![Release](https://img.shields.io/github/v/release/metalagman/semverctl)](https://github.com/metalagman/semverctl/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 CLI for bumping and setting SemVer values in JSON/YAML files
 
+## Features
+
+- ✨ **Semantic Versioning** - Strict SemVer 2.0.0 compliance with prerelease and build metadata support
+- 📁 **Multiple Formats** - JSON and YAML file support
+- 🎯 **Path Navigation** - Dot-notation paths for nested version fields (e.g., `.app.version`)
+- 🔢 **Numeric Bumping** - Bump individual numeric fields for object-style versions
+- 🧪 **Dry-Run Mode** - Preview changes with unified diff output
+- 🌐 **Cross-Platform** - Linux, macOS, and Windows support
+- 📦 **Multiple Distribution Channels** - Go install, npm, uv/PyPI, and GitHub Releases
+
 ## Installation
+
+### Pre-built Binaries
+
+Download pre-built binaries from [GitHub Releases](https://github.com/metalagman/semverctl/releases):
+
+```bash
+# Linux/macOS
+curl -L https://github.com/metalagman/semverctl/releases/latest/download/semverctl-linux-amd64 -o semverctl
+chmod +x semverctl
+sudo mv semverctl /usr/local/bin/
+
+# Verify checksum (recommended)
+curl -L https://github.com/metalagman/semverctl/releases/latest/download/checksums.txt -o checksums.txt
+sha256sum -c checksums.txt
+```
+
+### npm (Node.js)
+
+```bash
+npx @metalagman/semverctl version
+
+# Or install globally
+npm install -g @metalagman/semverctl
+semverctl version
+```
+
+### uv/Pip (Python)
+
+```bash
+uvx semverctl version
+
+# Or install
+uv pip install semverctl
+semverctl version
+```
+
+### Go
+
+```bash
+go install github.com/metalagman/semverctl/cmd/semverctl@latest
+```
 
 ```bash
 go install github.com/metalagman/semverctl/cmd/semverctl@latest
@@ -147,7 +203,13 @@ This project uses [Omnidist](https://github.com/omnidist/omnidist) for cross-pla
 npx @metalagman/semverctl version
 ```
 
-**Local build with Omnidist:**
+**uv (Python):**
+```bash
+uvx semverctl version
+```
+
+### Build from Source with Omnidist
+
 ```bash
 # Build for all platforms
 omnidist build
@@ -158,6 +220,23 @@ omnidist stage
 # Verify
 omnidist verify
 ```
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`go test ./...`)
+5. Run linter (`golangci-lint run ./...`)
+6. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+## Security
+
+For security issues, please email the maintainer directly rather than opening a public issue.
 
 ## License
 

@@ -1,0 +1,9 @@
+# ignore everything in .norma by default
+*
+
+# but keep this file itself
+!.gitignore
+
+# keep config
+!config.yaml
+!config.yml

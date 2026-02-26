@@ -1,0 +1,22 @@
+# AI Agent Context Exclusions
+# These patterns guide AI agents on what to exclude from context
+
+# Generated files
+*.pb.go
+*_gen.go
+
+# Vendor directories
+vendor/
+
+# Test data
+testdata/
+*.test
+
+# Build artifacts
+bin/
+dist/
+*.exe
+
+# IDE files
+.idea/
+.vscode/

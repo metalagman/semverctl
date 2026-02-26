@@ -20,19 +20,10 @@ CLI for bumping and setting SemVer values in JSON/YAML files
 
 ## Installation
 
-### Pre-built Binaries
-
-Download pre-built binaries from [GitHub Releases](https://github.com/metalagman/semverctl/releases):
+### Go
 
 ```bash
-# Linux/macOS
-curl -L https://github.com/metalagman/semverctl/releases/latest/download/semverctl-linux-amd64 -o semverctl
-chmod +x semverctl
-sudo mv semverctl /usr/local/bin/
-
-# Verify checksum (recommended)
-curl -L https://github.com/metalagman/semverctl/releases/latest/download/checksums.txt -o checksums.txt
-sha256sum -c checksums.txt
+go install github.com/metalagman/semverctl/cmd/semverctl@latest
 ```
 
 ### npm (Node.js)
@@ -55,13 +46,20 @@ uv pip install semverctl
 semverctl version
 ```
 
-### Go
+### Pre-built Binaries
+
+Download pre-built binaries from [GitHub Releases](https://github.com/metalagman/semverctl/releases):
 
 ```bash
-go install github.com/metalagman/semverctl/cmd/semverctl@latest
-```
+# Linux/macOS
+curl -L https://github.com/metalagman/semverctl/releases/latest/download/semverctl-linux-amd64 -o semverctl
+chmod +x semverctl
+sudo mv semverctl /usr/local/bin/
 
-Or download a pre-built binary from the [releases page](https://github.com/metalagman/semverctl/releases).
+# Verify checksum (recommended)
+curl -L https://github.com/metalagman/semverctl/releases/latest/download/checksums.txt -o checksums.txt
+sha256sum -c checksums.txt
+```
 
 ## Usage
 

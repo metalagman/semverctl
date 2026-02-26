@@ -10,12 +10,12 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 )
 
-// Resolver handles file target resolution
+// Resolver handles file target resolution.
 type Resolver struct {
 	roots []string
 }
 
-// NewResolver creates a new target resolver with the given roots
+// NewResolver creates a new target resolver with the given roots.
 func NewResolver(roots []string) *Resolver {
 	if len(roots) == 0 {
 		roots = []string{"."}
@@ -23,7 +23,7 @@ func NewResolver(roots []string) *Resolver {
 	return &Resolver{roots: roots}
 }
 
-// Resolve resolves targets from a single file path
+// Resolve resolves targets from a single file path.
 func (r *Resolver) Resolve(file string) ([]string, error) {
 	info, err := os.Stat(file)
 	if err != nil {
@@ -40,7 +40,7 @@ func (r *Resolver) Resolve(file string) ([]string, error) {
 	return []string{file}, nil
 }
 
-// ResolveGlob resolves targets from a glob pattern across all roots
+// ResolveGlob resolves targets from a glob pattern across all roots.
 func (r *Resolver) ResolveGlob(pattern string) ([]string, error) {
 	var allMatches []string
 	seen := make(map[string]bool)
@@ -91,7 +91,7 @@ func (r *Resolver) ResolveGlob(pattern string) ([]string, error) {
 	return allMatches, nil
 }
 
-// isSupportedExtension checks if the file has a supported extension
+// isSupportedExtension checks if the file has a supported extension.
 func isSupportedExtension(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -102,7 +102,7 @@ func isSupportedExtension(path string) bool {
 	}
 }
 
-// ValidateSingleTarget validates that exactly one of file or glob is specified
+// ValidateSingleTarget validates that exactly one of file or glob is specified.
 func ValidateSingleTarget(file, glob string) error {
 	hasFile := file != ""
 	hasGlob := glob != ""

@@ -78,38 +78,38 @@ func TestParse(t *testing.T) {
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name    string
-		data    interface{}
+		data    any
 		path    []string
-		want    interface{}
+		want    any
 		wantErr bool
 	}{
 		{
 			name: "get from map",
-			data: map[string]interface{}{"version": "1.0.0"},
+			data: map[string]any{"version": "1.0.0"},
 			path: []string{"version"},
 			want: "1.0.0",
 		},
 		{
 			name: "get nested",
-			data: map[string]interface{}{"app": map[string]interface{}{"version": "1.0.0"}},
+			data: map[string]any{"app": map[string]any{"version": "1.0.0"}},
 			path: []string{"app", "version"},
 			want: "1.0.0",
 		},
 		{
 			name:    "path not found",
-			data:    map[string]interface{}{"version": "1.0.0"},
+			data:    map[string]any{"version": "1.0.0"},
 			path:    []string{"missing"},
 			wantErr: true,
 		},
 		{
 			name:    "cannot traverse",
-			data:    map[string]interface{}{"version": "1.0.0"},
+			data:    map[string]any{"version": "1.0.0"},
 			path:    []string{"version", "nested"},
 			wantErr: true,
 		},
 		{
 			name: "interface map",
-			data: map[interface{}]interface{}{"version": "1.0.0"},
+			data: map[any]any{"version": "1.0.0"},
 			path: []string{"version"},
 			want: "1.0.0",
 		},
@@ -132,47 +132,47 @@ func TestGet(t *testing.T) {
 func TestSet(t *testing.T) {
 	tests := []struct {
 		name    string
-		data    interface{}
+		data    any
 		path    []string
-		value   interface{}
+		value   any
 		wantErr bool
 	}{
 		{
 			name:  "set in map",
-			data:  map[string]interface{}{"version": "1.0.0"},
+			data:  map[string]any{"version": "1.0.0"},
 			path:  []string{"version"},
 			value: "2.0.0",
 		},
 		{
 			name:  "set nested",
-			data:  map[string]interface{}{"app": map[string]interface{}{"version": "1.0.0"}},
+			data:  map[string]any{"app": map[string]any{"version": "1.0.0"}},
 			path:  []string{"app", "version"},
 			value: "2.0.0",
 		},
 		{
 			name:    "path not found",
-			data:    map[string]interface{}{"version": "1.0.0"},
+			data:    map[string]any{"version": "1.0.0"},
 			path:    []string{"missing"},
 			value:   "2.0.0",
 			wantErr: true,
 		},
 		{
 			name:    "empty path",
-			data:    map[string]interface{}{"version": "1.0.0"},
+			data:    map[string]any{"version": "1.0.0"},
 			path:    []string{},
 			value:   "2.0.0",
 			wantErr: true,
 		},
 		{
 			name:    "cannot traverse",
-			data:    map[string]interface{}{"version": "1.0.0"},
+			data:    map[string]any{"version": "1.0.0"},
 			path:    []string{"version", "nested"},
 			value:   "2.0.0",
 			wantErr: true,
 		},
 		{
 			name:  "interface map",
-			data:  map[interface{}]interface{}{"version": "1.0.0"},
+			data:  map[any]any{"version": "1.0.0"},
 			path:  []string{"version"},
 			value: "2.0.0",
 		},

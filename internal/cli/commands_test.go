@@ -11,7 +11,7 @@ import (
 func TestRunBump(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0644)
+	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644)
 
 	tests := []struct {
 		name    string
@@ -80,7 +80,7 @@ func TestRunBump(t *testing.T) {
 func TestRunSet(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0644)
+	os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644)
 
 	tests := []struct {
 		name    string

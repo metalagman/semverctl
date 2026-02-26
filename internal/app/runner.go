@@ -5,14 +5,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
+
 	"github.com/metalagman/semverctl/internal/formats"
 	"github.com/metalagman/semverctl/internal/pathx"
 	"github.com/metalagman/semverctl/internal/semverx"
 	"github.com/metalagman/semverctl/internal/targets"
-	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-// Operation represents the type of operation to perform
+// Operation represents the type of operation to perform.
 type Operation string
 
 const (
@@ -20,7 +21,7 @@ const (
 	OpSet  Operation = "set"
 )
 
-// Config holds the application configuration
+// Config holds the application configuration.
 type Config struct {
 	Operation   Operation
 	Version     string // For OpSet
@@ -33,7 +34,7 @@ type Config struct {
 	NumericBump bool // For numeric scalar bumps
 }
 
-// Result holds the result of processing a single file
+// Result holds the result of processing a single file.
 type Result struct {
 	File    string
 	OldVer  string
@@ -42,17 +43,17 @@ type Result struct {
 	Error   error
 }
 
-// Runner orchestrates the version bumping/setting process
+// Runner orchestrates the version bumping/setting process.
 type Runner struct {
 	config *Config
 }
 
-// NewRunner creates a new app runner
+// NewRunner creates a new app runner.
 func NewRunner(config *Config) *Runner {
 	return &Runner{config: config}
 }
 
-// Run executes the version bumping/setting operation
+// Run executes the version bumping/setting operation.
 func (r *Runner) Run() error {
 	// Validate config
 	if err := r.validate(); err != nil {
@@ -125,7 +126,8 @@ func (r *Runner) validate() error {
 	}
 
 	// Validate file/glob
-	if err := targets.ValidateSingleTarget(r.config.File, r.config.Glob); err != nil {
+	err := targets.ValidateSingleTarget(r.config.File, r.config.Glob)
+	if err != nil {
 		return err
 	}
 
@@ -164,7 +166,7 @@ func (r *Runner) processFile(file string) Result {
 	return r.processSemver(file, data, doc, codec)
 }
 
-func (r *Runner) processSemver(file string, data []byte, doc interface{}, codec formats.Codec) Result {
+func (r *Runner) processSemver(file string, data []byte, doc any, codec formats.Codec) Result {
 	result := Result{File: file}
 
 	// Get current version
@@ -219,7 +221,8 @@ func (r *Runner) processSemver(file string, data []byte, doc interface{}, codec 
 	if r.config.DryRun {
 		r.printDiff(file, string(data), string(newData))
 	} else {
-		if err := os.WriteFile(file, newData, 0644); err != nil {
+		err := os.WriteFile(file, newData, 0o644)
+		if err != nil {
 			result.Error = fmt.Errorf("failed to write file: %w", err)
 			return result
 		}
@@ -228,7 +231,7 @@ func (r *Runner) processSemver(file string, data []byte, doc interface{}, codec 
 	return result
 }
 
-func (r *Runner) processNumericBump(file string, data []byte, doc interface{}, codec formats.Codec) Result {
+func (r *Runner) processNumericBump(file string, data []byte, doc any, codec formats.Codec) Result {
 	result := Result{File: file}
 
 	// Get current numeric value
@@ -267,7 +270,8 @@ func (r *Runner) processNumericBump(file string, data []byte, doc interface{}, c
 	if r.config.DryRun {
 		r.printDiff(file, string(data), string(newData))
 	} else {
-		if err := os.WriteFile(file, newData, 0644); err != nil {
+		err := os.WriteFile(file, newData, 0o644)
+		if err != nil {
 			result.Error = fmt.Errorf("failed to write file: %w", err)
 			return result
 		}
@@ -314,13 +318,13 @@ func (r *Runner) printDiff(filename, oldContent, newContent string) {
 	for _, diff := range diffs {
 		switch diff.Type {
 		case diffmatchpatch.DiffDelete:
-			for _, line := range strings.Split(diff.Text, "\n") {
+			for line := range strings.SplitSeq(diff.Text, "\n") {
 				if line != "" {
 					fmt.Printf("-%s\n", line)
 				}
 			}
 		case diffmatchpatch.DiffInsert:
-			for _, line := range strings.Split(diff.Text, "\n") {
+			for line := range strings.SplitSeq(diff.Text, "\n") {
 				if line != "" {
 					fmt.Printf("+%s\n", line)
 				}
@@ -332,7 +336,7 @@ func (r *Runner) printDiff(filename, oldContent, newContent string) {
 	fmt.Println()
 }
 
-// JoinPath joins path components for display
+// JoinPath joins path components for display.
 func JoinPath(path []string) string {
 	return pathx.Join(path)
 }

@@ -5,5 +5,12 @@ linters:
   disable:
     - wsl
     - depguard
-  enable:
     - wsl_v5
+    - cyclop
+    - funlen
+    - nlreturn
+    - gochecknoinits
+    - lll
+    - mnd
+    - testpackage
+    - nestif

@@ -3,9 +3,10 @@ package cli
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/metalagman/semverctl/internal/app"
 	"github.com/metalagman/semverctl/internal/pathx"
-	"github.com/spf13/cobra"
 )
 
 var (

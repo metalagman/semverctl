@@ -7,9 +7,11 @@ import (
 	"strings"
 )
 
-var semVerRegex = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
+var semVerRegex = regexp.MustCompile(
+	`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`,
+)
 
-// Version represents a semantic version
+// Version represents a semantic version.
 type Version struct {
 	Major      uint64
 	Minor      uint64
@@ -18,7 +20,7 @@ type Version struct {
 	Metadata   string
 }
 
-// Parse validates and parses a semantic version string
+// Parse validates and parses a semantic version string.
 func Parse(s string) (*Version, error) {
 	matches := semVerRegex.FindStringSubmatch(s)
 	if matches == nil {
@@ -38,7 +40,7 @@ func Parse(s string) (*Version, error) {
 	}, nil
 }
 
-// String returns the string representation of the version
+// String returns the string representation of the version.
 func (v *Version) String() string {
 	result := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 	if v.Prerelease != "" {
@@ -50,7 +52,7 @@ func (v *Version) String() string {
 	return result
 }
 
-// BumpMajor increments the major version and resets minor/patch, clears prerelease/metadata
+// BumpMajor increments the major version and resets minor/patch, clears prerelease/metadata.
 func (v *Version) BumpMajor() *Version {
 	return &Version{
 		Major: v.Major + 1,
@@ -59,7 +61,7 @@ func (v *Version) BumpMajor() *Version {
 	}
 }
 
-// BumpMinor increments the minor version and resets patch, clears prerelease/metadata
+// BumpMinor increments the minor version and resets patch, clears prerelease/metadata.
 func (v *Version) BumpMinor() *Version {
 	return &Version{
 		Major: v.Major,
@@ -68,7 +70,7 @@ func (v *Version) BumpMinor() *Version {
 	}
 }
 
-// BumpPatch increments the patch version, clears prerelease/metadata
+// BumpPatch increments the patch version, clears prerelease/metadata.
 func (v *Version) BumpPatch() *Version {
 	return &Version{
 		Major: v.Major,
@@ -77,7 +79,7 @@ func (v *Version) BumpPatch() *Version {
 	}
 }
 
-// Bump bumps the version according to the given component
+// Bump bumps the version according to the given component.
 func (v *Version) Bump(component string) (*Version, error) {
 	switch strings.ToLower(component) {
 	case "major":
@@ -91,7 +93,7 @@ func (v *Version) Bump(component string) (*Version, error) {
 	}
 }
 
-// IsValid checks if a string is a valid semantic version
+// IsValid checks if a string is a valid semantic version.
 func IsValid(s string) bool {
 	return semVerRegex.MatchString(s)
 }

@@ -24,8 +24,8 @@ func TestResolver_Resolve(t *testing.T) {
 	jsonFile := filepath.Join(tmpDir, "test.json")
 	txtFile := filepath.Join(tmpDir, "test.txt")
 
-	os.WriteFile(jsonFile, []byte(`{"version": "1.0.0"}`), 0644)
-	os.WriteFile(txtFile, []byte("version=1.0.0"), 0644)
+	os.WriteFile(jsonFile, []byte(`{"version": "1.0.0"}`), 0o644)
+	os.WriteFile(txtFile, []byte("version=1.0.0"), 0o644)
 
 	r := NewResolver([]string{tmpDir})
 
@@ -64,9 +64,9 @@ func TestResolver_Resolve(t *testing.T) {
 func TestResolver_ResolveGlob(t *testing.T) {
 	// Create temp directory with test files
 	tmpDir := t.TempDir()
-	os.WriteFile(filepath.Join(tmpDir, "test.json"), []byte(`{"version": "1.0.0"}`), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "test.yaml"), []byte("version: 1.0.0\n"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("version=1.0.0"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "test.json"), []byte(`{"version": "1.0.0"}`), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "test.yaml"), []byte("version: 1.0.0\n"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("version=1.0.0"), 0o644)
 
 	r := NewResolver([]string{tmpDir})
 

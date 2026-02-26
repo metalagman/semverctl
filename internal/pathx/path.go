@@ -6,7 +6,7 @@ import (
 )
 
 // Parse splits a dot-path into components
-// Supports formats like: .version, .app.version, version, app.version
+// Supports formats like: .version, .app.version, version, app.version.
 func Parse(path string) ([]string, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -33,19 +33,19 @@ func Parse(path string) ([]string, error) {
 }
 
 // Get traverses a nested map/slice structure following the path
-// Returns the value at the path or an error if path doesn't exist
-func Get(data interface{}, path []string) (interface{}, error) {
+// Returns the value at the path or an error if path doesn't exist.
+func Get(data any, path []string) (any, error) {
 	current := data
 
 	for i, key := range path {
 		switch v := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			val, ok := v[key]
 			if !ok {
 				return nil, fmt.Errorf("path not found: %s", strings.Join(path[:i+1], "."))
 			}
 			current = val
-		case map[interface{}]interface{}:
+		case map[any]any:
 			val, ok := v[key]
 			if !ok {
 				return nil, fmt.Errorf("path not found: %s", strings.Join(path[:i+1], "."))
@@ -60,8 +60,8 @@ func Get(data interface{}, path []string) (interface{}, error) {
 }
 
 // Set updates a value at the given path in a nested map structure
-// Returns an error if the path doesn't exist or if intermediate values are not maps
-func Set(data interface{}, path []string, value interface{}) error {
+// Returns an error if the path doesn't exist or if intermediate values are not maps.
+func Set(data any, path []string, value any) error {
 	if len(path) == 0 {
 		return fmt.Errorf("path cannot be empty")
 	}
@@ -69,16 +69,16 @@ func Set(data interface{}, path []string, value interface{}) error {
 	current := data
 
 	// Navigate to parent of target
-	for i := 0; i < len(path)-1; i++ {
+	for i := range len(path) - 1 {
 		key := path[i]
 		switch v := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			next, ok := v[key]
 			if !ok {
 				return fmt.Errorf("path not found: %s", strings.Join(path[:i+1], "."))
 			}
 			current = next
-		case map[interface{}]interface{}:
+		case map[any]any:
 			next, ok := v[key]
 			if !ok {
 				return fmt.Errorf("path not found: %s", strings.Join(path[:i+1], "."))
@@ -92,12 +92,12 @@ func Set(data interface{}, path []string, value interface{}) error {
 	// Set the value
 	targetKey := path[len(path)-1]
 	switch v := current.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		if _, ok := v[targetKey]; !ok {
 			return fmt.Errorf("path not found: %s", strings.Join(path, "."))
 		}
 		v[targetKey] = value
-	case map[interface{}]interface{}:
+	case map[any]any:
 		if _, ok := v[targetKey]; !ok {
 			return fmt.Errorf("path not found: %s", strings.Join(path, "."))
 		}
@@ -109,7 +109,7 @@ func Set(data interface{}, path []string, value interface{}) error {
 	return nil
 }
 
-// Join joins path components into a dot-path string
+// Join joins path components into a dot-path string.
 func Join(parts []string) string {
 	return strings.Join(parts, ".")
 }

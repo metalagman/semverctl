@@ -50,7 +50,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("Encode", func(t *testing.T) {
-		data := map[string]interface{}{"version": "1.0.0"}
+		data := map[string]any{"version": "1.0.0"}
 		encoded, err := codec.Encode(data)
 		if err != nil {
 			t.Errorf("Encode() error = %v", err)
@@ -61,7 +61,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("GetVersion", func(t *testing.T) {
-		data := map[string]interface{}{"version": "1.0.0"}
+		data := map[string]any{"version": "1.0.0"}
 		ver, err := codec.GetVersion(data, []string{"version"})
 		if err != nil {
 			t.Errorf("GetVersion() error = %v", err)
@@ -72,7 +72,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("GetVersion not string", func(t *testing.T) {
-		data := map[string]interface{}{"version": 123}
+		data := map[string]any{"version": 123}
 		_, err := codec.GetVersion(data, []string{"version"})
 		if err == nil {
 			t.Error("GetVersion() should error on non-string")
@@ -80,7 +80,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("SetVersion", func(t *testing.T) {
-		data := map[string]interface{}{"version": "1.0.0"}
+		data := map[string]any{"version": "1.0.0"}
 		err := codec.SetVersion(data, []string{"version"}, "2.0.0")
 		if err != nil {
 			t.Errorf("SetVersion() error = %v", err)
@@ -91,7 +91,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("GetNumericScalar", func(t *testing.T) {
-		data := map[string]interface{}{"count": float64(42)}
+		data := map[string]any{"count": float64(42)}
 		val, err := codec.GetNumericScalar(data, []string{"count"})
 		if err != nil {
 			t.Errorf("GetNumericScalar() error = %v", err)
@@ -102,7 +102,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("GetNumericScalar not numeric", func(t *testing.T) {
-		data := map[string]interface{}{"count": "not a number"}
+		data := map[string]any{"count": "not a number"}
 		_, err := codec.GetNumericScalar(data, []string{"count"})
 		if err == nil {
 			t.Error("GetNumericScalar() should error on non-numeric")
@@ -110,7 +110,7 @@ func TestJSONCodec(t *testing.T) {
 	})
 
 	t.Run("SetNumericScalar", func(t *testing.T) {
-		data := map[string]interface{}{"count": float64(42)}
+		data := map[string]any{"count": float64(42)}
 		err := codec.SetNumericScalar(data, []string{"count"}, 43)
 		if err != nil {
 			t.Errorf("SetNumericScalar() error = %v", err)
@@ -141,7 +141,7 @@ func TestYAMLCodec(t *testing.T) {
 	})
 
 	t.Run("Encode", func(t *testing.T) {
-		data := map[string]interface{}{"version": "1.0.0"}
+		data := map[string]any{"version": "1.0.0"}
 		encoded, err := codec.Encode(data)
 		if err != nil {
 			t.Errorf("Encode() error = %v", err)
@@ -152,7 +152,7 @@ func TestYAMLCodec(t *testing.T) {
 	})
 
 	t.Run("GetVersion", func(t *testing.T) {
-		data := map[string]interface{}{"version": "1.0.0"}
+		data := map[string]any{"version": "1.0.0"}
 		ver, err := codec.GetVersion(data, []string{"version"})
 		if err != nil {
 			t.Errorf("GetVersion() error = %v", err)
@@ -163,7 +163,7 @@ func TestYAMLCodec(t *testing.T) {
 	})
 
 	t.Run("GetVersion not string", func(t *testing.T) {
-		data := map[string]interface{}{"version": 123}
+		data := map[string]any{"version": 123}
 		_, err := codec.GetVersion(data, []string{"version"})
 		if err == nil {
 			t.Error("GetVersion() should error on non-string")
@@ -171,7 +171,7 @@ func TestYAMLCodec(t *testing.T) {
 	})
 
 	t.Run("SetVersion", func(t *testing.T) {
-		data := map[string]interface{}{"version": "1.0.0"}
+		data := map[string]any{"version": "1.0.0"}
 		err := codec.SetVersion(data, []string{"version"}, "2.0.0")
 		if err != nil {
 			t.Errorf("SetVersion() error = %v", err)
@@ -182,7 +182,7 @@ func TestYAMLCodec(t *testing.T) {
 	})
 
 	t.Run("GetNumericScalar", func(t *testing.T) {
-		data := map[string]interface{}{"count": 42}
+		data := map[string]any{"count": 42}
 		val, err := codec.GetNumericScalar(data, []string{"count"})
 		if err != nil {
 			t.Errorf("GetNumericScalar() error = %v", err)
@@ -193,7 +193,7 @@ func TestYAMLCodec(t *testing.T) {
 	})
 
 	t.Run("SetNumericScalar", func(t *testing.T) {
-		data := map[string]interface{}{"count": 42}
+		data := map[string]any{"count": 42}
 		err := codec.SetNumericScalar(data, []string{"count"}, 43)
 		if err != nil {
 			t.Errorf("SetNumericScalar() error = %v", err)
@@ -204,11 +204,11 @@ func TestYAMLCodec(t *testing.T) {
 func TestNormalizeYAML(t *testing.T) {
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 	}{
-		{"string map", map[string]interface{}{"key": "value"}},
-		{"interface map", map[interface{}]interface{}{"key": "value"}},
-		{"slice", []interface{}{"a", "b"}},
+		{"string map", map[string]any{"key": "value"}},
+		{"interface map", map[any]any{"key": "value"}},
+		{"slice", []any{"a", "b"}},
 		{"string", "value"},
 		{"int", 42},
 	}

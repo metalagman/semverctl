@@ -49,17 +49,17 @@ var versionCmd = &cobra.Command{
 	},
 }
 
-// GetVersion returns the current version string
+// GetVersion returns the current version string.
 func GetVersion() string {
 	return version
 }
 
-// GetGitCommit returns the git commit hash
+// GetGitCommit returns the git commit hash.
 func GetGitCommit() string {
 	return gitCommit
 }
 
-// GetBuildDate returns the build date
+// GetBuildDate returns the build date.
 func GetBuildDate() string {
 	return buildDate
 }

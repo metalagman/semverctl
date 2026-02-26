@@ -2,12 +2,24 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/metalagman/semverctl/internal/app"
 	"github.com/metalagman/semverctl/internal/pathx"
 )
+
+func MinimumNArgsWithHelp(n int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) < n {
+			cmd.Help()
+			fmt.Println()
+			os.Exit(1)
+		}
+		return nil
+	}
+}
 
 var (
 	flagPath        string
@@ -60,7 +72,7 @@ Examples:
   semverctl set 1.2.3 package.json                    # Set version in package.json
   semverctl set 2.0.0 --glob "**/*.json" .            # Set version in all JSON files
   semverctl set 1.0.0 --path .app.version config.yaml # Set version at custom path`,
-		Args: cobra.MinimumNArgs(1),
+		Args: MinimumNArgsWithHelp(1),
 		RunE: runSet,
 	}
 

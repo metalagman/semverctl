@@ -14,7 +14,8 @@ CLI for bumping and setting SemVer values in JSON/YAML files
 - 🎯 **Path Navigation** - Dot-notation paths for nested version fields (e.g., `.app.version`)
 - 🔢 **Numeric Bumping** - Bump individual numeric fields for object-style versions
 - 🧪 **Dry-Run Mode** - Preview changes with unified diff output
-- 🌐 **Cross-Platform** - Linux, macOS, and Windows support
+- 🌐 **Cross-Platform** - Linux, macOS, and Windows support (CGO-free)
+- ⚡ **Zero Dependencies** - Pure Go implementation with no runtime dependencies
 - 📦 **Multiple Distribution Channels** - Go install, npm, uv/PyPI, and GitHub Releases
 
 ## Installation

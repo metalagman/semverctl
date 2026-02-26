@@ -4,7 +4,6 @@
 [![lint](https://github.com/metalagman/semverctl/actions/workflows/lint.yml/badge.svg)](https://github.com/metalagman/semverctl/actions/workflows/lint.yml)
 [![test](https://github.com/metalagman/semverctl/actions/workflows/test.yml/badge.svg)](https://github.com/metalagman/semverctl/actions/workflows/test.yml)
 [![codecov](https://codecov.io/github/metalagman/semverctl/graph/badge.svg)](https://codecov.io/github/metalagman/semverctl)
-[![go](https://img.shields.io/github/go-mod/go-version/metalagman/semverctl)](https://github.com/metalagman/semverctl/blob/master/go.mod)
 [![version](https://img.shields.io/github/v/release/metalagman/semverctl?sort=semver)](https://github.com/metalagman/semverctl/releases)
 [![npm](https://img.shields.io/npm/v/%40metalagman%2Fsemverctl)](https://www.npmjs.com/package/@metalagman/semverctl)
 [![PyPI](https://img.shields.io/pypi/v/semverctl)](https://pypi.org/project/semverctl/)

@@ -67,45 +67,72 @@ sha256sum -c checksums.txt
 
 ## Usage
 
-### Bump Version
+### Bump File Version
 
-Bump the semantic version at the specified path in JSON or YAML files:
+Bump the semantic version in a specific JSON or YAML file:
 
 ```bash
-# Bump patch version in package.json (default target)
-semverctl bump
+# Bump patch in a file
+semverctl bump file package.json
 
-# Bump specific version component in package.json
-semverctl bump --minor
-semverctl bump --major
-semverctl bump --patch
+# Bump specific version component
+semverctl bump file package.json --minor
+semverctl bump file package.json --major
 
-# Bump version in a specific file at a custom path
-semverctl bump --file config.yaml --path .app.version
+# Bump version at a custom path
+semverctl bump file config.yaml --path .app.version
 
-# Bump all matching files in current directory tree
-semverctl bump --glob "**/*.json"
-
-# Preview changes without modifying files
-semverctl bump --dry-run
+# Preview changes without modifying the file
+semverctl bump file package.json --dry-run
 ```
 
-### Set Version
+### Set File Version
 
-Set an explicit version value:
+Set an explicit version value in a specific file:
 
 ```bash
-# Set version to 1.2.3 in package.json (default target)
-semverctl set 1.2.3
+# Set version to 1.2.3 in a file
+semverctl set file 1.2.3 package.json
 
-# Set version in a specific file at a custom path
-semverctl set 2.0.0 --file config.yaml --path .app.version
-
-# Set version in all matching files under current directory
-semverctl set 2.0.0 --glob "**/*.json"
+# Set version at a custom path
+semverctl set file 2.0.0 config.yaml --path .app.version
 
 # Preview changes
-semverctl set 1.0.0 --dry-run
+semverctl set file 1.0.0 package.json --dry-run
+```
+
+### Bump Tag
+
+Bump from the latest stable git tag (`vX.Y.Z`) and create a new annotated tag:
+
+```bash
+# Create next patch tag
+semverctl bump tag
+
+# Create next minor tag
+semverctl bump tag --minor
+
+# Preview tag creation
+semverctl bump tag --dry-run
+
+# Create and push tag to origin
+semverctl bump tag --push
+```
+
+### Set Tag
+
+Create an explicit annotated git tag:
+
+```bash
+# Accepts 1.2.3 or v1.2.3
+semverctl set tag 1.2.3
+semverctl set tag v2.0.0
+
+# Preview tag creation
+semverctl set tag 2.1.0 --dry-run
+
+# Create and push tag to origin
+semverctl set tag 2.1.0 --push
 ```
 
 ### Numeric Bump
@@ -114,7 +141,7 @@ For object-style version fields (e.g., `{ "Major": 1, "Minor": 2, "Patch": 3 }`)
 you can bump numeric scalar values:
 
 ```bash
-semverctl bump --numeric --path .version.Patch --file config.json
+semverctl bump file config.json --numeric --path .version.Patch
 ```
 
 This increments the numeric value at the specified path by 1.
@@ -147,13 +174,14 @@ semverctl follows the [Semantic Versioning 2.0.0](https://semver.org/) specifica
 
 ## Dry-Run Mode
 
-Use `--dry-run` to preview changes without modifying files:
+Use `--dry-run` to preview file changes or tag actions without mutation:
 
 ```bash
-semverctl bump --dry-run package.json
+semverctl bump file package.json --dry-run
+semverctl bump tag --dry-run
 ```
 
-This outputs a unified diff showing what would change.
+For file commands, this outputs a unified diff showing what would change.
 
 ## Exit Codes
 

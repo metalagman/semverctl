@@ -28,9 +28,10 @@ It supports bumping versions (major, minor, patch) and setting explicit version 
 using dot-path selectors (e.g., .version, .app.version).
 
 Examples:
-  semverctl bump
-  semverctl bump --file config.yaml --path .app.version
-  semverctl set 1.2.3 --file package.json`,
+  semverctl bump file package.json
+  semverctl bump tag --dry-run
+  semverctl set file 1.2.3 package.json
+  semverctl set tag 1.2.3`,
 }
 
 // Execute runs the root CLI command.

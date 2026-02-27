@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -16,11 +16,9 @@ func setFlag(t *testing.T, cmd *cobra.Command, name, value string) {
 	}
 }
 
-func newBumpTestCmd() *cobra.Command {
+func newBumpFileTestCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("path", "version", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
 	cmd.Flags().Bool("dry-run", false, "")
 	cmd.Flags().Bool("major", false, "")
 	cmd.Flags().Bool("minor", false, "")
@@ -29,293 +27,358 @@ func newBumpTestCmd() *cobra.Command {
 	return cmd
 }
 
-func newSetTestCmd() *cobra.Command {
+func newSetFileTestCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("path", "version", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
 	cmd.Flags().Bool("dry-run", false, "")
 	return cmd
 }
 
-func TestRunBump_DefaultTargetPackageJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	if err := os.WriteFile("package.json", []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write package.json: %v", err)
-	}
-
-	cmd := newBumpTestCmd()
-	setFlag(t, cmd, "dry-run", "true")
-
-	if err := runBump(cmd, nil); err != nil {
-		t.Fatalf("runBump() with default target returned error: %v", err)
-	}
+func newBumpTagTestCmd() *cobra.Command {
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("major", false, "")
+	cmd.Flags().Bool("minor", false, "")
+	cmd.Flags().Bool("patch", false, "")
+	cmd.Flags().Bool("push", false, "")
+	cmd.Flags().Bool("dry-run", false, "")
+	return cmd
 }
 
-func TestRunBump_DefaultTargetMissingPackageJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	cmd := newBumpTestCmd()
-	setFlag(t, cmd, "dry-run", "true")
-
-	err := runBump(cmd, nil)
-	if err == nil {
-		t.Fatal("runBump() should error when default package.json is missing")
-	}
-	if !strings.Contains(err.Error(), `stat "package.json"`) {
-		t.Fatalf("runBump() error = %v, want error containing stat package.json", err)
-	}
+func newSetTagTestCmd() *cobra.Command {
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("push", false, "")
+	cmd.Flags().Bool("dry-run", false, "")
+	return cmd
 }
 
-func TestRunBump_RejectsPositionalArgs(t *testing.T) {
-	cmd := newBumpTestCmd()
-	if err := runBump(cmd, []string{"package.json"}); err == nil {
-		t.Fatal("runBump() should error on positional args")
-	}
+type fakeTagService struct {
+	ensureCleanErr error
+	nextTag        string
+	nextTagErr     error
+	normalizedTag  string
+	normalizeErr   error
+	createErr      error
+	pushErr        error
+	created        []string
+	pushed         []string
 }
 
-func TestRunBump_Glob(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
+func (f *fakeTagService) EnsureClean() error { return f.ensureCleanErr }
 
-	if err := os.WriteFile("a.json", []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write a.json: %v", err)
+func (f *fakeTagService) NextTag(component string) (string, error) {
+	if f.nextTagErr != nil {
+		return "", f.nextTagErr
 	}
-	if err := os.WriteFile("b.yaml", []byte("version: 1.0.0\n"), 0o644); err != nil {
-		t.Fatalf("write b.yaml: %v", err)
-	}
-	if err := os.WriteFile("ignored.txt", []byte("noop"), 0o644); err != nil {
-		t.Fatalf("write ignored.txt: %v", err)
-	}
-
-	cmd := newBumpTestCmd()
-	setFlag(t, cmd, "glob", "**/*")
-	setFlag(t, cmd, "dry-run", "true")
-
-	if err := runBump(cmd, nil); err != nil {
-		t.Fatalf("runBump() with --glob returned error: %v", err)
-	}
+	return f.nextTag, nil
 }
 
-func TestRunBump_ValidationErrors(t *testing.T) {
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test.json")
-	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write test file: %v", err)
+func (f *fakeTagService) NormalizeTag(versionOrTag string) (string, error) {
+	if f.normalizeErr != nil {
+		return "", f.normalizeErr
 	}
-
-	tests := []struct {
-		name    string
-		flags   map[string]string
-		wantErr bool
-	}{
-		{
-			name:    "multiple bump types",
-			flags:   map[string]string{"file": testFile, "major": "true", "minor": "true"},
-			wantErr: true,
-		},
-		{
-			name:    "numeric with bump type",
-			flags:   map[string]string{"file": testFile, "numeric": "true", "patch": "true"},
-			wantErr: true,
-		},
-		{
-			name:    "invalid path",
-			flags:   map[string]string{"file": testFile, "path": ".."},
-			wantErr: true,
-		},
-		{
-			name:    "file and glob conflict",
-			flags:   map[string]string{"file": testFile, "glob": "**/*"},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := newBumpTestCmd()
-			for k, v := range tt.flags {
-				setFlag(t, cmd, k, v)
-			}
-
-			err := runBump(cmd, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("runBump() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+	return f.normalizedTag, nil
 }
 
-func TestRunSet_DefaultTargetPackageJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	if err := os.WriteFile("package.json", []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write package.json: %v", err)
-	}
-
-	cmd := newSetTestCmd()
-	setFlag(t, cmd, "dry-run", "true")
-
-	if err := runSet(cmd, []string{"1.2.3"}); err != nil {
-		t.Fatalf("runSet() with default target returned error: %v", err)
-	}
+func (f *fakeTagService) CreateAnnotatedTag(tag string) error {
+	f.created = append(f.created, tag)
+	return f.createErr
 }
 
-func TestRunSet_DefaultTargetMissingPackageJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	cmd := newSetTestCmd()
-	setFlag(t, cmd, "dry-run", "true")
-
-	err := runSet(cmd, []string{"1.2.3"})
-	if err == nil {
-		t.Fatal("runSet() should error when default package.json is missing")
-	}
-	if !strings.Contains(err.Error(), `stat "package.json"`) {
-		t.Fatalf("runSet() error = %v, want error containing stat package.json", err)
-	}
+func (f *fakeTagService) PushTag(tag string) error {
+	f.pushed = append(f.pushed, tag)
+	return f.pushErr
 }
 
-func TestRunSet_RejectsExtraPositionalArgs(t *testing.T) {
-	cmd := newSetTestCmd()
-	if err := runSet(cmd, []string{"1.2.3", "package.json"}); err == nil {
-		t.Fatal("runSet() should error on extra positional args")
-	}
+func useFakeTagService(t *testing.T, svc *fakeTagService) {
+	t.Helper()
+	old := newTagService
+	newTagService = func() tagService { return svc }
+	t.Cleanup(func() { newTagService = old })
 }
 
-func TestRunSet_Glob(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	if err := os.WriteFile("a.json", []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write a.json: %v", err)
-	}
-	if err := os.WriteFile("b.yaml", []byte("version: 1.0.0\n"), 0o644); err != nil {
-		t.Fatalf("write b.yaml: %v", err)
-	}
-
-	cmd := newSetTestCmd()
-	setFlag(t, cmd, "glob", "**/*")
-	setFlag(t, cmd, "dry-run", "true")
-
-	if err := runSet(cmd, []string{"2.0.0"}); err != nil {
-		t.Fatalf("runSet() with --glob returned error: %v", err)
-	}
-}
-
-func TestRunSet_ValidationErrors(t *testing.T) {
+func TestRunBumpFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
 	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
 		t.Fatalf("write test file: %v", err)
 	}
 
-	tests := []struct {
-		name    string
-		args    []string
-		flags   map[string]string
-		wantErr bool
-	}{
-		{
-			name:    "missing version",
-			args:    []string{},
-			flags:   map[string]string{},
-			wantErr: true,
-		},
-		{
-			name:    "invalid path",
-			args:    []string{"1.2.3"},
-			flags:   map[string]string{"file": testFile, "path": ".."},
-			wantErr: true,
-		},
-		{
-			name:    "file and glob conflict",
-			args:    []string{"1.2.3"},
-			flags:   map[string]string{"file": testFile, "glob": "**/*"},
-			wantErr: true,
-		},
-	}
+	t.Run("dry run success", func(t *testing.T) {
+		cmd := newBumpFileTestCmd()
+		setFlag(t, cmd, "dry-run", "true")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := newSetTestCmd()
-			for k, v := range tt.flags {
-				setFlag(t, cmd, k, v)
-			}
+		if err := runBumpFile(cmd, []string{testFile}); err != nil {
+			t.Fatalf("runBumpFile() error = %v", err)
+		}
+	})
 
-			err := runSet(cmd, tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("runSet() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+	t.Run("numeric with bump type", func(t *testing.T) {
+		cmd := newBumpFileTestCmd()
+		setFlag(t, cmd, "numeric", "true")
+		setFlag(t, cmd, "patch", "true")
+
+		if err := runBumpFile(cmd, []string{testFile}); err == nil {
+			t.Fatal("runBumpFile() should fail when --numeric and bump type are combined")
+		}
+	})
+
+	t.Run("invalid path", func(t *testing.T) {
+		cmd := newBumpFileTestCmd()
+		setFlag(t, cmd, "path", "..")
+
+		if err := runBumpFile(cmd, []string{testFile}); err == nil {
+			t.Fatal("runBumpFile() should fail on invalid path")
+		}
+	})
+
+	t.Run("requires file arg", func(t *testing.T) {
+		cmd := newBumpFileTestCmd()
+		if err := runBumpFile(cmd, nil); err == nil {
+			t.Fatal("runBumpFile() should require one file arg")
+		}
+	})
 }
 
-func TestLoadBumpFlagsErrors(t *testing.T) {
+func TestRunSetFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
+
+	t.Run("dry run success", func(t *testing.T) {
+		cmd := newSetFileTestCmd()
+		setFlag(t, cmd, "dry-run", "true")
+
+		if err := runSetFile(cmd, []string{"1.2.3", testFile}); err != nil {
+			t.Fatalf("runSetFile() error = %v", err)
+		}
+	})
+
+	t.Run("invalid path", func(t *testing.T) {
+		cmd := newSetFileTestCmd()
+		setFlag(t, cmd, "path", "..")
+
+		if err := runSetFile(cmd, []string{"1.2.3", testFile}); err == nil {
+			t.Fatal("runSetFile() should fail on invalid path")
+		}
+	})
+
+	t.Run("requires two args", func(t *testing.T) {
+		cmd := newSetFileTestCmd()
+		if err := runSetFile(cmd, []string{"1.2.3"}); err == nil {
+			t.Fatal("runSetFile() should require VERSION and PATH")
+		}
+	})
+}
+
+func TestRunBumpTag(t *testing.T) {
+	t.Run("create by default", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4"}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		if err := runBumpTag(cmd, nil); err != nil {
+			t.Fatalf("runBumpTag() error = %v", err)
+		}
+
+		if len(svc.created) != 1 || svc.created[0] != "v1.2.4" {
+			t.Fatalf("created tags = %v, want [v1.2.4]", svc.created)
+		}
+		if len(svc.pushed) != 0 {
+			t.Fatalf("pushed tags = %v, want none", svc.pushed)
+		}
+	})
+
+	t.Run("dry run does not create", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4"}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		setFlag(t, cmd, "dry-run", "true")
+
+		if err := runBumpTag(cmd, nil); err != nil {
+			t.Fatalf("runBumpTag() error = %v", err)
+		}
+		if len(svc.created) != 0 || len(svc.pushed) != 0 {
+			t.Fatalf("dry-run should not mutate, created=%v pushed=%v", svc.created, svc.pushed)
+		}
+	})
+
+	t.Run("push", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4"}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		setFlag(t, cmd, "push", "true")
+
+		if err := runBumpTag(cmd, nil); err != nil {
+			t.Fatalf("runBumpTag() error = %v", err)
+		}
+		if len(svc.created) != 1 || len(svc.pushed) != 1 {
+			t.Fatalf("expected one create and one push, created=%v pushed=%v", svc.created, svc.pushed)
+		}
+	})
+
+	t.Run("clean repo required", func(t *testing.T) {
+		svc := &fakeTagService{ensureCleanErr: errors.New("dirty")}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		if err := runBumpTag(cmd, nil); err == nil {
+			t.Fatal("runBumpTag() should fail when repo is dirty")
+		}
+	})
+
+	t.Run("bump flags conflict", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4"}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		setFlag(t, cmd, "major", "true")
+		setFlag(t, cmd, "minor", "true")
+
+		if err := runBumpTag(cmd, nil); err == nil {
+			t.Fatal("runBumpTag() should fail on conflicting bump flags")
+		}
+	})
+}
+
+func TestRunSetTag(t *testing.T) {
+	t.Run("create by default", func(t *testing.T) {
+		svc := &fakeTagService{normalizedTag: "v1.2.3"}
+		useFakeTagService(t, svc)
+
+		cmd := newSetTagTestCmd()
+		if err := runSetTag(cmd, []string{"1.2.3"}); err != nil {
+			t.Fatalf("runSetTag() error = %v", err)
+		}
+
+		if len(svc.created) != 1 || svc.created[0] != "v1.2.3" {
+			t.Fatalf("created tags = %v, want [v1.2.3]", svc.created)
+		}
+	})
+
+	t.Run("dry run does not create", func(t *testing.T) {
+		svc := &fakeTagService{normalizedTag: "v1.2.3"}
+		useFakeTagService(t, svc)
+
+		cmd := newSetTagTestCmd()
+		setFlag(t, cmd, "dry-run", "true")
+
+		if err := runSetTag(cmd, []string{"1.2.3"}); err != nil {
+			t.Fatalf("runSetTag() error = %v", err)
+		}
+		if len(svc.created) != 0 || len(svc.pushed) != 0 {
+			t.Fatalf("dry-run should not mutate, created=%v pushed=%v", svc.created, svc.pushed)
+		}
+	})
+
+	t.Run("push", func(t *testing.T) {
+		svc := &fakeTagService{normalizedTag: "v1.2.3"}
+		useFakeTagService(t, svc)
+
+		cmd := newSetTagTestCmd()
+		setFlag(t, cmd, "push", "true")
+
+		if err := runSetTag(cmd, []string{"1.2.3"}); err != nil {
+			t.Fatalf("runSetTag() error = %v", err)
+		}
+		if len(svc.created) != 1 || len(svc.pushed) != 1 {
+			t.Fatalf("expected one create and one push, created=%v pushed=%v", svc.created, svc.pushed)
+		}
+	})
+
+	t.Run("normalize error", func(t *testing.T) {
+		svc := &fakeTagService{normalizeErr: errors.New("invalid version")}
+		useFakeTagService(t, svc)
+
+		cmd := newSetTagTestCmd()
+		if err := runSetTag(cmd, []string{"nope"}); err == nil {
+			t.Fatal("runSetTag() should fail on invalid version")
+		}
+	})
+
+	t.Run("requires one arg", func(t *testing.T) {
+		svc := &fakeTagService{normalizedTag: "v1.2.3"}
+		useFakeTagService(t, svc)
+
+		cmd := newSetTagTestCmd()
+		if err := runSetTag(cmd, nil); err == nil {
+			t.Fatal("runSetTag() should require VERSION")
+		}
+	})
+}
+
+func TestLoadBumpFileFlagsErrors(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.Flags().Int("path", 0, "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
 	cmd.Flags().Bool("dry-run", false, "")
 	cmd.Flags().Bool("major", false, "")
 	cmd.Flags().Bool("minor", false, "")
 	cmd.Flags().Bool("patch", false, "")
 	cmd.Flags().Bool("numeric", false, "")
 
-	if _, err := loadBumpFlags(cmd); err == nil {
-		t.Fatal("loadBumpFlags() should error when path flag has wrong type")
+	if _, err := loadBumpFileFlags(cmd); err == nil {
+		t.Fatal("loadBumpFileFlags() should error when path flag has wrong type")
 	}
 }
 
-func TestLoadSetFlagsErrors(t *testing.T) {
+func TestLoadSetFileFlagsErrors(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("path", "version", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
 	cmd.Flags().String("dry-run", "false", "")
 
-	if _, err := loadSetFlags(cmd); err == nil {
-		t.Fatal("loadSetFlags() should error when dry-run flag has wrong type")
+	if _, err := loadSetFileFlags(cmd); err == nil {
+		t.Fatal("loadSetFileFlags() should error when dry-run flag has wrong type")
 	}
 }
 
-func TestBumpCommandFlags(t *testing.T) {
-	bumpCmd := &cobra.Command{Use: "bump", Short: "Bump version"}
+func TestCommandTree(t *testing.T) {
+	var bumpCmd *cobra.Command
+	var setCmd *cobra.Command
 
-	bumpCmd.Flags().String("path", "version", "")
-	bumpCmd.Flags().String("file", "", "")
-	bumpCmd.Flags().String("glob", "", "")
-	bumpCmd.Flags().Bool("dry-run", false, "")
-	bumpCmd.Flags().Bool("major", false, "")
-	bumpCmd.Flags().Bool("minor", false, "")
-	bumpCmd.Flags().Bool("patch", false, "")
-	bumpCmd.Flags().Bool("numeric", false, "")
-
-	requiredFlags := []string{"path", "file", "glob", "dry-run", "major", "minor", "patch", "numeric"}
-	for _, flag := range requiredFlags {
-		if bumpCmd.Flags().Lookup(flag) == nil {
-			t.Errorf("bump command missing flag: %s", flag)
+	for _, cmd := range rootCmd.Commands() {
+		switch cmd.Name() {
+		case "bump":
+			bumpCmd = cmd
+		case "set":
+			setCmd = cmd
 		}
 	}
-}
 
-func TestSetCommandFlags(t *testing.T) {
-	setCmd := &cobra.Command{Use: "set", Short: "Set version"}
+	if bumpCmd == nil {
+		t.Fatal("bump command not found")
+	}
+	if setCmd == nil {
+		t.Fatal("set command not found")
+	}
 
-	setCmd.Flags().String("path", "version", "")
-	setCmd.Flags().String("file", "", "")
-	setCmd.Flags().String("glob", "", "")
-	setCmd.Flags().Bool("dry-run", false, "")
-
-	requiredFlags := []string{"path", "file", "glob", "dry-run"}
-	for _, flag := range requiredFlags {
-		if setCmd.Flags().Lookup(flag) == nil {
-			t.Errorf("set command missing flag: %s", flag)
+	hasBumpFile := false
+	hasBumpTag := false
+	for _, cmd := range bumpCmd.Commands() {
+		switch cmd.Name() {
+		case "file":
+			hasBumpFile = true
+		case "tag":
+			hasBumpTag = true
 		}
+	}
+	if !hasBumpFile || !hasBumpTag {
+		t.Fatalf("bump subcommands missing: file=%v tag=%v", hasBumpFile, hasBumpTag)
+	}
+
+	hasSetFile := false
+	hasSetTag := false
+	for _, cmd := range setCmd.Commands() {
+		switch cmd.Name() {
+		case "file":
+			hasSetFile = true
+		case "tag":
+			hasSetTag = true
+		}
+	}
+	if !hasSetFile || !hasSetTag {
+		t.Fatalf("set subcommands missing: file=%v tag=%v", hasSetFile, hasSetTag)
 	}
 }

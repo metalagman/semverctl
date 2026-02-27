@@ -45,7 +45,8 @@ type Result struct {
 
 // Runner orchestrates the version bumping/setting process.
 type Runner struct {
-	config *Config
+	config         *Config
+	suppressOutput bool
 }
 
 // NewRunner creates a new app runner.
@@ -55,9 +56,28 @@ func NewRunner(config *Config) *Runner {
 
 // Run executes the version bumping/setting operation.
 func (r *Runner) Run() error {
+	prevSuppressOutput := r.suppressOutput
+	r.suppressOutput = false
+	defer func() { r.suppressOutput = prevSuppressOutput }()
+
+	_, err := r.runWithOptionalOutput()
+	return err
+}
+
+// RunWithResults executes the operation and returns per-file results without
+// printing human-readable output.
+func (r *Runner) RunWithResults() ([]Result, error) {
+	prevSuppressOutput := r.suppressOutput
+	r.suppressOutput = true
+	defer func() { r.suppressOutput = prevSuppressOutput }()
+
+	return r.runWithOptionalOutput()
+}
+
+func (r *Runner) runWithOptionalOutput() ([]Result, error) {
 	// Validate config
 	if err := r.validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Resolve targets
@@ -71,7 +91,7 @@ func (r *Runner) Run() error {
 		files, err = resolver.ResolveGlob(r.config.Glob)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Process files
@@ -86,14 +106,15 @@ func (r *Runner) Run() error {
 		}
 	}
 
-	// Print results
-	r.printResults(results)
-
-	if hasErrors {
-		return fmt.Errorf("one or more files failed to process")
+	if !r.suppressOutput {
+		r.printResults(results)
 	}
 
-	return nil
+	if hasErrors {
+		return results, fmt.Errorf("one or more files failed to process")
+	}
+
+	return results, nil
 }
 
 func (r *Runner) validate() error {
@@ -219,7 +240,9 @@ func (r *Runner) processSemver(file string, data []byte, doc any, codec formats.
 
 	// Output
 	if r.config.DryRun {
-		r.printDiff(file, string(data), string(newData))
+		if !r.suppressOutput {
+			r.printDiff(file, string(data), string(newData))
+		}
 	} else {
 		err := os.WriteFile(file, newData, 0o644)
 		if err != nil {
@@ -268,7 +291,9 @@ func (r *Runner) processNumericBump(file string, data []byte, doc any, codec for
 
 	// Output
 	if r.config.DryRun {
-		r.printDiff(file, string(data), string(newData))
+		if !r.suppressOutput {
+			r.printDiff(file, string(data), string(newData))
+		}
 	} else {
 		err := os.WriteFile(file, newData, 0o644)
 		if err != nil {

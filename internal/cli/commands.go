@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -46,6 +49,75 @@ var newTagService = func() tagService {
 	return gitx.NewService()
 }
 
+type jsonFileResultSummary struct {
+	Changed   int `json:"changed"`
+	Unchanged int `json:"unchanged"`
+	Errors    int `json:"errors"`
+}
+
+type jsonCommandOutput struct {
+	OK            bool                   `json:"ok"`
+	Command       string                 `json:"command"`
+	DryRun        bool                   `json:"dry_run"`
+	Error         string                 `json:"error,omitempty"`
+	File          string                 `json:"file,omitempty"`
+	Path          string                 `json:"path,omitempty"`
+	Bump          string                 `json:"bump,omitempty"`
+	Numeric       bool                   `json:"numeric,omitempty"`
+	TargetVersion string                 `json:"target_version,omitempty"`
+	OldVersion    string                 `json:"old_version,omitempty"`
+	NewVersion    string                 `json:"new_version,omitempty"`
+	Result        *jsonFileResultSummary `json:"result,omitempty"`
+	Tag           string                 `json:"tag,omitempty"`
+	Version       string                 `json:"version,omitempty"`
+	Push          bool                   `json:"push,omitempty"`
+	Created       bool                   `json:"created,omitempty"`
+	Pushed        bool                   `json:"pushed,omitempty"`
+	Action        string                 `json:"action,omitempty"`
+}
+
+func emitJSON(output jsonCommandOutput) {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(output)
+}
+
+func emitJSONError(output jsonCommandOutput, err error) error {
+	output.OK = false
+	output.Error = err.Error()
+	emitJSON(output)
+	return err
+}
+
+func jsonRequested(cmd *cobra.Command) bool {
+	enabled, err := cmd.Flags().GetBool("json")
+	return err == nil && enabled
+}
+
+func summarizeResults(results []app.Result) jsonFileResultSummary {
+	summary := jsonFileResultSummary{}
+	for _, result := range results {
+		switch {
+		case result.Error != nil:
+			summary.Errors++
+		case result.Changed:
+			summary.Changed++
+		default:
+			summary.Unchanged++
+		}
+	}
+	return summary
+}
+
+func bestResultError(results []app.Result, fallback error) error {
+	for _, result := range results {
+		if result.Error != nil {
+			return result.Error
+		}
+	}
+	return fallback
+}
+
 func init() {
 	bumpCmd := &cobra.Command{
 		Use:   "bump",
@@ -68,7 +140,8 @@ Use 'bump tag' to create a new git tag based on the latest stable vX.Y.Z tag.`,
 Examples:
   semverctl bump file package.json
   semverctl bump file config.yaml --minor --path .app.version
-  semverctl bump file config.json --numeric --path .version.Patch`,
+  semverctl bump file config.json --numeric --path .version.Patch
+  semverctl bump file package.json --dry-run --json`,
 		Args: ExactNArgsWithHelp(1),
 		RunE: runBumpFile,
 	}
@@ -78,6 +151,7 @@ Examples:
 	bumpFileCmd.Flags().Bool("minor", false, "Bump minor version")
 	bumpFileCmd.Flags().Bool("patch", false, "Bump patch version (default)")
 	bumpFileCmd.Flags().Bool("numeric", false, "Bump numeric scalar by +1 (for object-style versions)")
+	bumpFileCmd.Flags().Bool("json", false, "Output machine-readable JSON")
 
 	bumpTagCmd := &cobra.Command{
 		Use:   "tag",
@@ -90,7 +164,8 @@ Examples:
   semverctl bump tag
   semverctl bump tag --minor
   semverctl bump tag --dry-run
-  semverctl bump tag --push`,
+  semverctl bump tag --push
+  semverctl bump tag --dry-run --json`,
 		Args: ExactNArgsWithHelp(0),
 		RunE: runBumpTag,
 	}
@@ -99,6 +174,7 @@ Examples:
 	bumpTagCmd.Flags().Bool("patch", false, "Bump patch version (default)")
 	bumpTagCmd.Flags().Bool("push", false, "Push created tag to origin")
 	bumpTagCmd.Flags().Bool("dry-run", false, "Preview resulting tag without creating it")
+	bumpTagCmd.Flags().Bool("json", false, "Output machine-readable JSON")
 
 	bumpCmd.AddCommand(bumpFileCmd, bumpTagCmd)
 	rootCmd.AddCommand(bumpCmd)
@@ -123,12 +199,14 @@ Use 'set tag' to create an explicit git tag.`,
 
 Examples:
   semverctl set file 1.2.3 package.json
-  semverctl set file 2.0.0 config.yaml --path .app.version`,
+  semverctl set file 2.0.0 config.yaml --path .app.version
+  semverctl set file 1.2.3 package.json --json`,
 		Args: ExactNArgsWithHelp(2),
 		RunE: runSetFile,
 	}
 	setFileCmd.Flags().String("path", "version", "Dot-path to version field (e.g., .version, .app.version)")
 	setFileCmd.Flags().Bool("dry-run", false, "Show diffs without modifying files")
+	setFileCmd.Flags().Bool("json", false, "Output machine-readable JSON")
 
 	setTagCmd := &cobra.Command{
 		Use:   "tag VERSION",
@@ -142,12 +220,14 @@ Examples:
   semverctl set tag 1.2.3
   semverctl set tag v2.0.0
   semverctl set tag 1.2.3 --dry-run
-  semverctl set tag 1.2.3 --push`,
+  semverctl set tag 1.2.3 --push
+  semverctl set tag 1.2.3 --json`,
 		Args: ExactNArgsWithHelp(1),
 		RunE: runSetTag,
 	}
 	setTagCmd.Flags().Bool("push", false, "Push created tag to origin")
 	setTagCmd.Flags().Bool("dry-run", false, "Preview resulting tag without creating it")
+	setTagCmd.Flags().Bool("json", false, "Output machine-readable JSON")
 
 	setCmd.AddCommand(setFileCmd, setTagCmd)
 	rootCmd.AddCommand(setCmd)
@@ -156,6 +236,7 @@ Examples:
 type bumpFileFlags struct {
 	path        string
 	dryRun      bool
+	json        bool
 	major       bool
 	minor       bool
 	patch       bool
@@ -171,6 +252,9 @@ func loadBumpFileFlags(cmd *cobra.Command) (bumpFileFlags, error) {
 	}
 	if f.dryRun, err = cmd.Flags().GetBool("dry-run"); err != nil {
 		return f, fmt.Errorf("get --dry-run: %w", err)
+	}
+	if f.json, err = cmd.Flags().GetBool("json"); err != nil {
+		return f, fmt.Errorf("get --json: %w", err)
 	}
 	if f.major, err = cmd.Flags().GetBool("major"); err != nil {
 		return f, fmt.Errorf("get --major: %w", err)
@@ -191,6 +275,7 @@ func loadBumpFileFlags(cmd *cobra.Command) (bumpFileFlags, error) {
 type setFileFlags struct {
 	path   string
 	dryRun bool
+	json   bool
 }
 
 func loadSetFileFlags(cmd *cobra.Command) (setFileFlags, error) {
@@ -203,6 +288,9 @@ func loadSetFileFlags(cmd *cobra.Command) (setFileFlags, error) {
 	if f.dryRun, err = cmd.Flags().GetBool("dry-run"); err != nil {
 		return f, fmt.Errorf("get --dry-run: %w", err)
 	}
+	if f.json, err = cmd.Flags().GetBool("json"); err != nil {
+		return f, fmt.Errorf("get --json: %w", err)
+	}
 
 	return f, nil
 }
@@ -213,6 +301,7 @@ type bumpTagFlags struct {
 	patch  bool
 	push   bool
 	dryRun bool
+	json   bool
 }
 
 func loadBumpTagFlags(cmd *cobra.Command) (bumpTagFlags, error) {
@@ -234,6 +323,9 @@ func loadBumpTagFlags(cmd *cobra.Command) (bumpTagFlags, error) {
 	if f.dryRun, err = cmd.Flags().GetBool("dry-run"); err != nil {
 		return f, fmt.Errorf("get --dry-run: %w", err)
 	}
+	if f.json, err = cmd.Flags().GetBool("json"); err != nil {
+		return f, fmt.Errorf("get --json: %w", err)
+	}
 
 	return f, nil
 }
@@ -241,6 +333,7 @@ func loadBumpTagFlags(cmd *cobra.Command) (bumpTagFlags, error) {
 type setTagFlags struct {
 	push   bool
 	dryRun bool
+	json   bool
 }
 
 func loadSetTagFlags(cmd *cobra.Command) (setTagFlags, error) {
@@ -252,6 +345,9 @@ func loadSetTagFlags(cmd *cobra.Command) (setTagFlags, error) {
 	}
 	if f.dryRun, err = cmd.Flags().GetBool("dry-run"); err != nil {
 		return f, fmt.Errorf("get --dry-run: %w", err)
+	}
+	if f.json, err = cmd.Flags().GetBool("json"); err != nil {
+		return f, fmt.Errorf("get --json: %w", err)
 	}
 
 	return f, nil
@@ -292,7 +388,11 @@ func resolveBumpComponent(cmd *cobra.Command, major, minor, patch bool) (string,
 
 func runBumpFile(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("requires exactly 1 arg(s)")
+		err := fmt.Errorf("requires exactly 1 arg(s)")
+		if jsonRequested(cmd) {
+			return emitJSONError(jsonCommandOutput{Command: "bump file"}, err)
+		}
+		return err
 	}
 
 	flags, err := loadBumpFileFlags(cmd)
@@ -300,9 +400,20 @@ func runBumpFile(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	jsonOut := jsonCommandOutput{
+		Command: "bump file",
+		DryRun:  flags.dryRun,
+		File:    args[0],
+		Numeric: flags.numericBump,
+	}
+
 	if flags.numericBump {
 		if flags.major || flags.minor || flags.patch {
-			return fmt.Errorf("cannot use --major/--minor/--patch with --numeric")
+			err := fmt.Errorf("cannot use --major/--minor/--patch with --numeric")
+			if flags.json {
+				return emitJSONError(jsonOut, err)
+			}
+			return err
 		}
 	}
 
@@ -310,14 +421,23 @@ func runBumpFile(cmd *cobra.Command, args []string) error {
 	if !flags.numericBump {
 		bumpType, err = resolveBumpComponent(cmd, flags.major, flags.minor, flags.patch)
 		if err != nil {
+			if flags.json {
+				return emitJSONError(jsonOut, err)
+			}
 			return err
 		}
+		jsonOut.Bump = bumpType
 	}
 
 	path, err := pathx.Parse(flags.path)
 	if err != nil {
-		return fmt.Errorf("invalid path %q: %w", flags.path, err)
+		err = fmt.Errorf("invalid path %q: %w", flags.path, err)
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
+		return err
 	}
+	jsonOut.Path = app.JoinPath(path)
 
 	config := &app.Config{
 		Operation:   app.OpBump,
@@ -328,12 +448,36 @@ func runBumpFile(cmd *cobra.Command, args []string) error {
 		NumericBump: flags.numericBump,
 	}
 
-	return app.NewRunner(config).Run()
+	runner := app.NewRunner(config)
+	if !flags.json {
+		return runner.Run()
+	}
+
+	results, runErr := runner.RunWithResults()
+	if len(results) > 0 {
+		jsonOut.File = results[0].File
+		jsonOut.OldVersion = results[0].OldVer
+		jsonOut.NewVersion = results[0].NewVer
+	}
+	summary := summarizeResults(results)
+	jsonOut.Result = &summary
+
+	if runErr != nil {
+		return emitJSONError(jsonOut, bestResultError(results, runErr))
+	}
+
+	jsonOut.OK = true
+	emitJSON(jsonOut)
+	return nil
 }
 
 func runSetFile(cmd *cobra.Command, args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("requires exactly 2 arg(s)")
+		err := fmt.Errorf("requires exactly 2 arg(s)")
+		if jsonRequested(cmd) {
+			return emitJSONError(jsonCommandOutput{Command: "set file"}, err)
+		}
+		return err
 	}
 
 	flags, err := loadSetFileFlags(cmd)
@@ -341,10 +485,22 @@ func runSetFile(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	jsonOut := jsonCommandOutput{
+		Command:       "set file",
+		DryRun:        flags.dryRun,
+		File:          args[1],
+		TargetVersion: args[0],
+	}
+
 	path, err := pathx.Parse(flags.path)
 	if err != nil {
-		return fmt.Errorf("invalid path %q: %w", flags.path, err)
+		err = fmt.Errorf("invalid path %q: %w", flags.path, err)
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
+		return err
 	}
+	jsonOut.Path = app.JoinPath(path)
 
 	config := &app.Config{
 		Operation: app.OpSet,
@@ -354,12 +510,36 @@ func runSetFile(cmd *cobra.Command, args []string) error {
 		DryRun:    flags.dryRun,
 	}
 
-	return app.NewRunner(config).Run()
+	runner := app.NewRunner(config)
+	if !flags.json {
+		return runner.Run()
+	}
+
+	results, runErr := runner.RunWithResults()
+	if len(results) > 0 {
+		jsonOut.File = results[0].File
+		jsonOut.OldVersion = results[0].OldVer
+		jsonOut.NewVersion = results[0].NewVer
+	}
+	summary := summarizeResults(results)
+	jsonOut.Result = &summary
+
+	if runErr != nil {
+		return emitJSONError(jsonOut, bestResultError(results, runErr))
+	}
+
+	jsonOut.OK = true
+	emitJSON(jsonOut)
+	return nil
 }
 
 func runBumpTag(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
-		return fmt.Errorf("requires exactly 0 arg(s)")
+		err := fmt.Errorf("requires exactly 0 arg(s)")
+		if jsonRequested(cmd) {
+			return emitJSONError(jsonCommandOutput{Command: "bump tag"}, err)
+		}
+		return err
 	}
 
 	flags, err := loadBumpTagFlags(cmd)
@@ -372,17 +552,38 @@ func runBumpTag(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	jsonOut := jsonCommandOutput{
+		Command: "bump tag",
+		DryRun:  flags.dryRun,
+		Push:    flags.push,
+		Bump:    bumpType,
+	}
+
 	svc := newTagService()
 	if err := svc.EnsureClean(); err != nil {
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
 		return err
 	}
 
 	tag, err := svc.NextTag(bumpType)
 	if err != nil {
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
 		return err
 	}
+	jsonOut.Tag = tag
+	jsonOut.Version = strings.TrimPrefix(tag, "v")
 
 	if flags.dryRun {
+		jsonOut.Action = "planned"
+		if flags.json {
+			jsonOut.OK = true
+			emitJSON(jsonOut)
+			return nil
+		}
 		if flags.push {
 			fmt.Printf("would create and push tag %s\n", tag)
 		} else {
@@ -392,15 +593,36 @@ func runBumpTag(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := svc.CreateAnnotatedTag(tag); err != nil {
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
 		return err
 	}
-	fmt.Printf("created tag %s\n", tag)
+	jsonOut.Created = true
+	jsonOut.Action = "created"
+	if !flags.json {
+		fmt.Printf("created tag %s\n", tag)
+	}
 
 	if flags.push {
 		if err := svc.PushTag(tag); err != nil {
-			return fmt.Errorf("tag %s created locally but push failed: %w", tag, err)
+			err = fmt.Errorf("tag %s created locally but push failed: %w", tag, err)
+			if flags.json {
+				return emitJSONError(jsonOut, err)
+			}
+			return err
 		}
-		fmt.Printf("pushed tag %s to origin\n", tag)
+		jsonOut.Pushed = true
+		jsonOut.Action = "created_and_pushed"
+		if !flags.json {
+			fmt.Printf("pushed tag %s to origin\n", tag)
+		}
+	}
+
+	if flags.json {
+		jsonOut.OK = true
+		emitJSON(jsonOut)
+		return nil
 	}
 
 	return nil
@@ -408,7 +630,11 @@ func runBumpTag(cmd *cobra.Command, args []string) error {
 
 func runSetTag(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("requires exactly 1 arg(s)")
+		err := fmt.Errorf("requires exactly 1 arg(s)")
+		if jsonRequested(cmd) {
+			return emitJSONError(jsonCommandOutput{Command: "set tag"}, err)
+		}
+		return err
 	}
 
 	flags, err := loadSetTagFlags(cmd)
@@ -416,17 +642,37 @@ func runSetTag(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	jsonOut := jsonCommandOutput{
+		Command: "set tag",
+		DryRun:  flags.dryRun,
+		Push:    flags.push,
+	}
+
 	svc := newTagService()
 	if err := svc.EnsureClean(); err != nil {
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
 		return err
 	}
 
 	tag, err := svc.NormalizeTag(args[0])
 	if err != nil {
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
 		return err
 	}
+	jsonOut.Tag = tag
+	jsonOut.Version = strings.TrimPrefix(tag, "v")
 
 	if flags.dryRun {
+		jsonOut.Action = "planned"
+		if flags.json {
+			jsonOut.OK = true
+			emitJSON(jsonOut)
+			return nil
+		}
 		if flags.push {
 			fmt.Printf("would create and push tag %s\n", tag)
 		} else {
@@ -436,15 +682,36 @@ func runSetTag(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := svc.CreateAnnotatedTag(tag); err != nil {
+		if flags.json {
+			return emitJSONError(jsonOut, err)
+		}
 		return err
 	}
-	fmt.Printf("created tag %s\n", tag)
+	jsonOut.Created = true
+	jsonOut.Action = "created"
+	if !flags.json {
+		fmt.Printf("created tag %s\n", tag)
+	}
 
 	if flags.push {
 		if err := svc.PushTag(tag); err != nil {
-			return fmt.Errorf("tag %s created locally but push failed: %w", tag, err)
+			err = fmt.Errorf("tag %s created locally but push failed: %w", tag, err)
+			if flags.json {
+				return emitJSONError(jsonOut, err)
+			}
+			return err
 		}
-		fmt.Printf("pushed tag %s to origin\n", tag)
+		jsonOut.Pushed = true
+		jsonOut.Action = "created_and_pushed"
+		if !flags.json {
+			fmt.Printf("pushed tag %s to origin\n", tag)
+		}
+	}
+
+	if flags.json {
+		jsonOut.OK = true
+		emitJSON(jsonOut)
+		return nil
 	}
 
 	return nil

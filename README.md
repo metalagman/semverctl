@@ -84,6 +84,9 @@ semverctl bump file config.yaml --path .app.version
 
 # Preview changes without modifying the file
 semverctl bump file package.json --dry-run
+
+# Machine-readable output for automation
+semverctl bump file package.json --dry-run --json
 ```
 
 ### Set File Version
@@ -99,6 +102,9 @@ semverctl set file 2.0.0 config.yaml --path .app.version
 
 # Preview changes
 semverctl set file 1.0.0 package.json --dry-run
+
+# Machine-readable output for automation
+semverctl set file 1.2.3 package.json --json
 ```
 
 ### Bump Tag
@@ -117,6 +123,9 @@ semverctl bump tag --dry-run
 
 # Create and push tag to origin
 semverctl bump tag --push
+
+# Machine-readable output for automation
+semverctl bump tag --dry-run --json
 ```
 
 ### Set Tag
@@ -133,6 +142,9 @@ semverctl set tag 2.1.0 --dry-run
 
 # Create and push tag to origin
 semverctl set tag 2.1.0 --push
+
+# Machine-readable output for automation
+semverctl set tag 2.1.0 --json
 ```
 
 ### Numeric Bump
@@ -182,6 +194,19 @@ semverctl bump tag --dry-run
 ```
 
 For file commands, this outputs a unified diff showing what would change.
+
+## JSON Output
+
+Use `--json` for machine-readable automation output:
+
+```bash
+semverctl bump tag --dry-run --json
+semverctl set tag 1.2.3 --json
+semverctl bump file package.json --dry-run --json
+```
+
+When `--json` is enabled, both success and failure responses are printed as JSON to stdout.
+Failures still return a non-zero exit code.
 
 ## Exit Codes
 

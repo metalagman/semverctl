@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,6 +22,7 @@ func newBumpFileTestCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("path", "version", "")
 	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("json", false, "")
 	cmd.Flags().Bool("major", false, "")
 	cmd.Flags().Bool("minor", false, "")
 	cmd.Flags().Bool("patch", false, "")
@@ -31,6 +34,7 @@ func newSetFileTestCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("path", "version", "")
 	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("json", false, "")
 	return cmd
 }
 
@@ -41,6 +45,7 @@ func newBumpTagTestCmd() *cobra.Command {
 	cmd.Flags().Bool("patch", false, "")
 	cmd.Flags().Bool("push", false, "")
 	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("json", false, "")
 	return cmd
 }
 
@@ -48,7 +53,35 @@ func newSetTagTestCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Flags().Bool("push", false, "")
 	cmd.Flags().Bool("dry-run", false, "")
+	cmd.Flags().Bool("json", false, "")
 	return cmd
+}
+
+func captureStdout(t *testing.T, fn func() error) (string, error) {
+	t.Helper()
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe(): %v", err)
+	}
+	os.Stdout = w
+
+	runErr := fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("close write pipe: %v", err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("close read pipe: %v", err)
+	}
+	os.Stdout = oldStdout
+
+	return string(out), runErr
 }
 
 type fakeTagService struct {
@@ -139,6 +172,40 @@ func TestRunBumpFile(t *testing.T) {
 	})
 }
 
+func TestRunBumpFile_JSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
+
+	cmd := newBumpFileTestCmd()
+	setFlag(t, cmd, "dry-run", "true")
+	setFlag(t, cmd, "json", "true")
+
+	out, err := captureStdout(t, func() error {
+		return runBumpFile(cmd, []string{testFile})
+	})
+	if err != nil {
+		t.Fatalf("runBumpFile() error = %v", err)
+	}
+
+	var payload jsonCommandOutput
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v, out=%q", err, out)
+	}
+
+	if !payload.OK || payload.Command != "bump file" {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
+	if payload.NewVersion != "1.0.1" {
+		t.Fatalf("payload.NewVersion = %q, want 1.0.1", payload.NewVersion)
+	}
+	if payload.Result == nil || payload.Result.Changed != 1 {
+		t.Fatalf("payload.Result = %+v, want changed=1", payload.Result)
+	}
+}
+
 func TestRunSetFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
@@ -170,6 +237,30 @@ func TestRunSetFile(t *testing.T) {
 			t.Fatal("runSetFile() should require VERSION and PATH")
 		}
 	})
+}
+
+func TestRunSetFile_JSONError(t *testing.T) {
+	cmd := newSetFileTestCmd()
+	setFlag(t, cmd, "json", "true")
+	setFlag(t, cmd, "dry-run", "true")
+
+	out, err := captureStdout(t, func() error {
+		return runSetFile(cmd, []string{"1.2.3", "missing.json"})
+	})
+	if err == nil {
+		t.Fatal("runSetFile() should return error for missing file")
+	}
+
+	var payload jsonCommandOutput
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v, out=%q", err, out)
+	}
+	if payload.OK {
+		t.Fatalf("payload.OK = true, want false: %+v", payload)
+	}
+	if payload.Error == "" {
+		t.Fatalf("payload.Error should be set: %+v", payload)
+	}
 }
 
 func TestRunBumpTag(t *testing.T) {
@@ -244,6 +335,55 @@ func TestRunBumpTag(t *testing.T) {
 	})
 }
 
+func TestRunBumpTag_JSON(t *testing.T) {
+	t.Run("dry run payload", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4"}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		setFlag(t, cmd, "dry-run", "true")
+		setFlag(t, cmd, "json", "true")
+
+		out, err := captureStdout(t, func() error {
+			return runBumpTag(cmd, nil)
+		})
+		if err != nil {
+			t.Fatalf("runBumpTag() error = %v", err)
+		}
+
+		var payload jsonCommandOutput
+		if err := json.Unmarshal([]byte(out), &payload); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v, out=%q", err, out)
+		}
+		if !payload.OK || payload.Tag != "v1.2.4" || payload.Version != "1.2.4" || payload.Action != "planned" {
+			t.Fatalf("unexpected payload: %+v", payload)
+		}
+	})
+
+	t.Run("error payload", func(t *testing.T) {
+		svc := &fakeTagService{ensureCleanErr: errors.New("dirty repo")}
+		useFakeTagService(t, svc)
+
+		cmd := newBumpTagTestCmd()
+		setFlag(t, cmd, "json", "true")
+
+		out, err := captureStdout(t, func() error {
+			return runBumpTag(cmd, nil)
+		})
+		if err == nil {
+			t.Fatal("runBumpTag() should return error")
+		}
+
+		var payload jsonCommandOutput
+		if err := json.Unmarshal([]byte(out), &payload); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v, out=%q", err, out)
+		}
+		if payload.OK || payload.Error == "" {
+			t.Fatalf("unexpected payload: %+v", payload)
+		}
+	})
+}
+
 func TestRunSetTag(t *testing.T) {
 	t.Run("create by default", func(t *testing.T) {
 		svc := &fakeTagService{normalizedTag: "v1.2.3"}
@@ -308,6 +448,30 @@ func TestRunSetTag(t *testing.T) {
 			t.Fatal("runSetTag() should require VERSION")
 		}
 	})
+}
+
+func TestRunSetTag_JSON(t *testing.T) {
+	svc := &fakeTagService{normalizedTag: "v1.2.3"}
+	useFakeTagService(t, svc)
+
+	cmd := newSetTagTestCmd()
+	setFlag(t, cmd, "dry-run", "true")
+	setFlag(t, cmd, "json", "true")
+
+	out, err := captureStdout(t, func() error {
+		return runSetTag(cmd, []string{"1.2.3"})
+	})
+	if err != nil {
+		t.Fatalf("runSetTag() error = %v", err)
+	}
+
+	var payload jsonCommandOutput
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v, out=%q", err, out)
+	}
+	if !payload.OK || payload.Tag != "v1.2.3" || payload.Version != "1.2.3" || payload.Action != "planned" {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
 }
 
 func TestLoadBumpFileFlagsErrors(t *testing.T) {
@@ -380,5 +544,16 @@ func TestCommandTree(t *testing.T) {
 	}
 	if !hasSetFile || !hasSetTag {
 		t.Fatalf("set subcommands missing: file=%v tag=%v", hasSetFile, hasSetTag)
+	}
+
+	for _, cmd := range bumpCmd.Commands() {
+		if cmd.Flags().Lookup("json") == nil {
+			t.Fatalf("bump subcommand %q missing --json flag", cmd.Name())
+		}
+	}
+	for _, cmd := range setCmd.Commands() {
+		if cmd.Flags().Lookup("json") == nil {
+			t.Fatalf("set subcommand %q missing --json flag", cmd.Name())
+		}
 	}
 }

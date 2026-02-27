@@ -1,8 +1,10 @@
 package app
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -268,6 +270,53 @@ func TestRunner_Run(t *testing.T) {
 			t.Error("Run() should error on invalid semver")
 		}
 	})
+}
+
+func TestRunner_RunWithResults(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	writeFile(t, testFile, []byte(`{"version": "1.0.0"}`))
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe(): %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = oldStdout }()
+
+	config := &Config{
+		Operation: OpBump,
+		BumpType:  "patch",
+		Path:      []string{"version"},
+		File:      testFile,
+		DryRun:    true,
+	}
+	runner := NewRunner(config)
+	results, runErr := runner.RunWithResults()
+	if runErr != nil {
+		t.Fatalf("RunWithResults() error = %v", runErr)
+	}
+	if len(results) != 1 {
+		t.Fatalf("RunWithResults() returned %d results, want 1", len(results))
+	}
+	if !results[0].Changed {
+		t.Fatalf("RunWithResults() expected changed result, got %+v", results[0])
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("close write pipe: %v", err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("close read pipe: %v", err)
+	}
+	if strings.TrimSpace(string(out)) != "" {
+		t.Fatalf("RunWithResults() should not print output, got %q", string(out))
+	}
 }
 
 func TestRunner_Run_Glob(t *testing.T) {

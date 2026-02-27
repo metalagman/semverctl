@@ -14,10 +14,13 @@ CLI for bumping and setting SemVer values in JSON/YAML files
 ## Features
 
 - ✨ **Semantic Versioning** - Strict SemVer 2.0.0 compliance with prerelease and build metadata support
-- 📁 **Multiple Formats** - JSON and YAML file support
+- 📁 **File + Tag Workflows** - Explicit `bump/set file` and `bump/set tag` commands
+- 🏷️ **Git Tag Releases** - Bump from latest stable `vX.Y.Z` tag or set explicit tags
 - 🎯 **Path Navigation** - Dot-notation paths for nested version fields (e.g., `.app.version`)
 - 🔢 **Numeric Bumping** - Bump individual numeric fields for object-style versions
 - 🧪 **Dry-Run Mode** - Preview changes with unified diff output
+- 🤖 **Automation-Friendly JSON** - `--json` output for machine-readable success/error payloads
+- 🔒 **Safety Checks** - Tag operations require a clean repository state
 - 🌐 **Cross-Platform** - Linux, macOS, and Windows support (CGO-free)
 - ⚡ **Zero Dependencies** - Pure Go implementation with no runtime dependencies
 - 📦 **Multiple Distribution Channels** - Go install, npm, uv/PyPI, and GitHub Releases

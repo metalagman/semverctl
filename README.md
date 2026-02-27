@@ -72,22 +72,22 @@ sha256sum -c checksums.txt
 Bump the semantic version at the specified path in JSON or YAML files:
 
 ```bash
-# Bump patch version (default)
-semverctl bump package.json
+# Bump patch version in package.json (default target)
+semverctl bump
 
-# Bump specific version component
-semverctl bump --minor package.json
-semverctl bump --major package.json
-semverctl bump --patch package.json
+# Bump specific version component in package.json
+semverctl bump --minor
+semverctl bump --major
+semverctl bump --patch
 
-# Bump version at a custom path
-semverctl bump --path .app.version config.yaml
+# Bump version in a specific file at a custom path
+semverctl bump --file config.yaml --path .app.version
 
-# Bump all JSON files in a directory
-semverctl bump --glob "**/*.json" .
+# Bump all matching files in current directory tree
+semverctl bump --glob "**/*.json"
 
 # Preview changes without modifying files
-semverctl bump --dry-run package.json
+semverctl bump --dry-run
 ```
 
 ### Set Version
@@ -95,14 +95,17 @@ semverctl bump --dry-run package.json
 Set an explicit version value:
 
 ```bash
-# Set version to 1.2.3
-semverctl set 1.2.3 package.json
+# Set version to 1.2.3 in package.json (default target)
+semverctl set 1.2.3
 
-# Set version at a custom path
-semverctl set 2.0.0 --path .app.version config.yaml
+# Set version in a specific file at a custom path
+semverctl set 2.0.0 --file config.yaml --path .app.version
+
+# Set version in all matching files under current directory
+semverctl set 2.0.0 --glob "**/*.json"
 
 # Preview changes
-semverctl set 1.0.0 --dry-run package.json
+semverctl set 1.0.0 --dry-run
 ```
 
 ### Numeric Bump
@@ -111,7 +114,7 @@ For object-style version fields (e.g., `{ "Major": 1, "Minor": 2, "Patch": 3 }`)
 you can bump numeric scalar values:
 
 ```bash
-semverctl bump --numeric --path .version.Patch config.json
+semverctl bump --numeric --path .version.Patch --file config.json
 ```
 
 This increments the numeric value at the specified path by 1.

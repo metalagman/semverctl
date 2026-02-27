@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -15,85 +16,7 @@ func setFlag(t *testing.T, cmd *cobra.Command, name, value string) {
 	}
 }
 
-func TestRunBump(t *testing.T) {
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test.json")
-	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write test file: %v", err)
-	}
-
-	tests := []struct {
-		name    string
-		args    []string
-		flags   map[string]string
-		wantErr bool
-	}{
-		{
-			name:    "missing file",
-			args:    []string{filepath.Join(tmpDir, "missing.json")},
-			flags:   map[string]string{},
-			wantErr: true,
-		},
-		{
-			name:    "multiple bump types",
-			args:    []string{},
-			flags:   map[string]string{"file": testFile, "major": "true", "minor": "true"},
-			wantErr: true,
-		},
-		{
-			name:    "numeric with bump type",
-			args:    []string{},
-			flags:   map[string]string{"file": testFile, "numeric": "true", "patch": "true"},
-			wantErr: true,
-		},
-		{
-			name:    "invalid path",
-			args:    []string{},
-			flags:   map[string]string{"file": testFile, "path": ".."},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &cobra.Command{}
-			cmd.Flags().String("path", "version", "")
-			cmd.Flags().String("file", "", "")
-			cmd.Flags().String("glob", "", "")
-			cmd.Flags().Bool("dry-run", false, "")
-			cmd.Flags().Bool("major", false, "")
-			cmd.Flags().Bool("minor", false, "")
-			cmd.Flags().Bool("patch", false, "")
-			cmd.Flags().Bool("numeric", false, "")
-
-			for k, v := range tt.flags {
-				setFlag(t, cmd, k, v)
-			}
-
-			err := runBump(cmd, tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("runBump() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestRunBump_MultipleRootsDefaultGlob(t *testing.T) {
-	root1 := filepath.Join(t.TempDir(), "a")
-	root2 := filepath.Join(t.TempDir(), "b")
-	if err := os.MkdirAll(root1, 0o755); err != nil {
-		t.Fatalf("mkdir root1: %v", err)
-	}
-	if err := os.MkdirAll(root2, 0o755); err != nil {
-		t.Fatalf("mkdir root2: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root1, "one.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write root1 file: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root2, "two.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write root2 file: %v", err)
-	}
-
+func newBumpTestCmd() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("path", "version", "")
 	cmd.Flags().String("file", "", "")
@@ -103,14 +26,189 @@ func TestRunBump_MultipleRootsDefaultGlob(t *testing.T) {
 	cmd.Flags().Bool("minor", false, "")
 	cmd.Flags().Bool("patch", false, "")
 	cmd.Flags().Bool("numeric", false, "")
+	return cmd
+}
+
+func newSetTestCmd() *cobra.Command {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("path", "version", "")
+	cmd.Flags().String("file", "", "")
+	cmd.Flags().String("glob", "", "")
+	cmd.Flags().Bool("dry-run", false, "")
+	return cmd
+}
+
+func TestRunBump_DefaultTargetPackageJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	if err := os.WriteFile("package.json", []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	cmd := newBumpTestCmd()
 	setFlag(t, cmd, "dry-run", "true")
 
-	if err := runBump(cmd, []string{root1, root2}); err != nil {
-		t.Fatalf("runBump() with multiple roots returned error: %v", err)
+	if err := runBump(cmd, nil); err != nil {
+		t.Fatalf("runBump() with default target returned error: %v", err)
 	}
 }
 
-func TestRunSet(t *testing.T) {
+func TestRunBump_DefaultTargetMissingPackageJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	cmd := newBumpTestCmd()
+	setFlag(t, cmd, "dry-run", "true")
+
+	err := runBump(cmd, nil)
+	if err == nil {
+		t.Fatal("runBump() should error when default package.json is missing")
+	}
+	if !strings.Contains(err.Error(), `stat "package.json"`) {
+		t.Fatalf("runBump() error = %v, want error containing stat package.json", err)
+	}
+}
+
+func TestRunBump_RejectsPositionalArgs(t *testing.T) {
+	cmd := newBumpTestCmd()
+	if err := runBump(cmd, []string{"package.json"}); err == nil {
+		t.Fatal("runBump() should error on positional args")
+	}
+}
+
+func TestRunBump_Glob(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	if err := os.WriteFile("a.json", []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write a.json: %v", err)
+	}
+	if err := os.WriteFile("b.yaml", []byte("version: 1.0.0\n"), 0o644); err != nil {
+		t.Fatalf("write b.yaml: %v", err)
+	}
+	if err := os.WriteFile("ignored.txt", []byte("noop"), 0o644); err != nil {
+		t.Fatalf("write ignored.txt: %v", err)
+	}
+
+	cmd := newBumpTestCmd()
+	setFlag(t, cmd, "glob", "**/*")
+	setFlag(t, cmd, "dry-run", "true")
+
+	if err := runBump(cmd, nil); err != nil {
+		t.Fatalf("runBump() with --glob returned error: %v", err)
+	}
+}
+
+func TestRunBump_ValidationErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		flags   map[string]string
+		wantErr bool
+	}{
+		{
+			name:    "multiple bump types",
+			flags:   map[string]string{"file": testFile, "major": "true", "minor": "true"},
+			wantErr: true,
+		},
+		{
+			name:    "numeric with bump type",
+			flags:   map[string]string{"file": testFile, "numeric": "true", "patch": "true"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid path",
+			flags:   map[string]string{"file": testFile, "path": ".."},
+			wantErr: true,
+		},
+		{
+			name:    "file and glob conflict",
+			flags:   map[string]string{"file": testFile, "glob": "**/*"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := newBumpTestCmd()
+			for k, v := range tt.flags {
+				setFlag(t, cmd, k, v)
+			}
+
+			err := runBump(cmd, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("runBump() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRunSet_DefaultTargetPackageJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	if err := os.WriteFile("package.json", []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	cmd := newSetTestCmd()
+	setFlag(t, cmd, "dry-run", "true")
+
+	if err := runSet(cmd, []string{"1.2.3"}); err != nil {
+		t.Fatalf("runSet() with default target returned error: %v", err)
+	}
+}
+
+func TestRunSet_DefaultTargetMissingPackageJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	cmd := newSetTestCmd()
+	setFlag(t, cmd, "dry-run", "true")
+
+	err := runSet(cmd, []string{"1.2.3"})
+	if err == nil {
+		t.Fatal("runSet() should error when default package.json is missing")
+	}
+	if !strings.Contains(err.Error(), `stat "package.json"`) {
+		t.Fatalf("runSet() error = %v, want error containing stat package.json", err)
+	}
+}
+
+func TestRunSet_RejectsExtraPositionalArgs(t *testing.T) {
+	cmd := newSetTestCmd()
+	if err := runSet(cmd, []string{"1.2.3", "package.json"}); err == nil {
+		t.Fatal("runSet() should error on extra positional args")
+	}
+}
+
+func TestRunSet_Glob(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	if err := os.WriteFile("a.json", []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write a.json: %v", err)
+	}
+	if err := os.WriteFile("b.yaml", []byte("version: 1.0.0\n"), 0o644); err != nil {
+		t.Fatalf("write b.yaml: %v", err)
+	}
+
+	cmd := newSetTestCmd()
+	setFlag(t, cmd, "glob", "**/*")
+	setFlag(t, cmd, "dry-run", "true")
+
+	if err := runSet(cmd, []string{"2.0.0"}); err != nil {
+		t.Fatalf("runSet() with --glob returned error: %v", err)
+	}
+}
+
+func TestRunSet_ValidationErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
 	if err := os.WriteFile(testFile, []byte(`{"version": "1.0.0"}`), 0o644); err != nil {
@@ -124,8 +222,8 @@ func TestRunSet(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "no file specified",
-			args:    []string{"1.2.3"},
+			name:    "missing version",
+			args:    []string{},
 			flags:   map[string]string{},
 			wantErr: true,
 		},
@@ -135,16 +233,17 @@ func TestRunSet(t *testing.T) {
 			flags:   map[string]string{"file": testFile, "path": ".."},
 			wantErr: true,
 		},
+		{
+			name:    "file and glob conflict",
+			args:    []string{"1.2.3"},
+			flags:   map[string]string{"file": testFile, "glob": "**/*"},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &cobra.Command{}
-			cmd.Flags().String("path", "version", "")
-			cmd.Flags().String("file", "", "")
-			cmd.Flags().String("glob", "", "")
-			cmd.Flags().Bool("dry-run", false, "")
-
+			cmd := newSetTestCmd()
 			for k, v := range tt.flags {
 				setFlag(t, cmd, k, v)
 			}
@@ -154,64 +253,6 @@ func TestRunSet(t *testing.T) {
 				t.Errorf("runSet() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestRunBump_FileWithPositionalRoots(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().String("path", "version", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
-	cmd.Flags().Bool("dry-run", false, "")
-	cmd.Flags().Bool("major", false, "")
-	cmd.Flags().Bool("minor", false, "")
-	cmd.Flags().Bool("patch", false, "")
-	cmd.Flags().Bool("numeric", false, "")
-	setFlag(t, cmd, "file", "test.json")
-
-	if err := runBump(cmd, []string{"."}); err == nil {
-		t.Fatal("runBump() should error when --file and positional roots are both provided")
-	}
-}
-
-func TestRunSet_MultipleRootsDefaultGlob(t *testing.T) {
-	root1 := filepath.Join(t.TempDir(), "a")
-	root2 := filepath.Join(t.TempDir(), "b")
-	if err := os.MkdirAll(root1, 0o755); err != nil {
-		t.Fatalf("mkdir root1: %v", err)
-	}
-	if err := os.MkdirAll(root2, 0o755); err != nil {
-		t.Fatalf("mkdir root2: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root1, "one.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write root1 file: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root2, "two.json"), []byte(`{"version":"1.0.0"}`), 0o644); err != nil {
-		t.Fatalf("write root2 file: %v", err)
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("path", "version", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
-	cmd.Flags().Bool("dry-run", false, "")
-	setFlag(t, cmd, "dry-run", "true")
-
-	if err := runSet(cmd, []string{"2.0.0", root1, root2}); err != nil {
-		t.Fatalf("runSet() with multiple roots returned error: %v", err)
-	}
-}
-
-func TestRunSet_FileWithPositionalRoots(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().String("path", "version", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("glob", "", "")
-	cmd.Flags().Bool("dry-run", false, "")
-	setFlag(t, cmd, "file", "test.json")
-
-	if err := runSet(cmd, []string{"1.2.3", "."}); err == nil {
-		t.Fatal("runSet() should error when --file and positional roots are both provided")
 	}
 }
 
@@ -244,11 +285,7 @@ func TestLoadSetFlagsErrors(t *testing.T) {
 }
 
 func TestBumpCommandFlags(t *testing.T) {
-	// Test that bump command has all expected flags
-	bumpCmd := &cobra.Command{
-		Use:   "bump",
-		Short: "Bump version",
-	}
+	bumpCmd := &cobra.Command{Use: "bump", Short: "Bump version"}
 
 	bumpCmd.Flags().String("path", "version", "")
 	bumpCmd.Flags().String("file", "", "")
@@ -268,11 +305,7 @@ func TestBumpCommandFlags(t *testing.T) {
 }
 
 func TestSetCommandFlags(t *testing.T) {
-	// Test that set command has all expected flags
-	setCmd := &cobra.Command{
-		Use:   "set",
-		Short: "Set version",
-	}
+	setCmd := &cobra.Command{Use: "set", Short: "Set version"}
 
 	setCmd.Flags().String("path", "version", "")
 	setCmd.Flags().String("file", "", "")

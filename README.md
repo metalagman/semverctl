@@ -9,7 +9,7 @@
 [![PyPI](https://img.shields.io/pypi/v/semverctl)](https://pypi.org/project/semverctl/)
 [![license](https://img.shields.io/github/license/metalagman/semverctl)](LICENSE)
 
-CLI for bumping and setting SemVer values in JSON/YAML files
+CLI for bumping and setting SemVer values in JSON/YAML files and Git tags
 
 ## Features
 

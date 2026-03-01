@@ -180,6 +180,18 @@ func TestVersion_Bump(t *testing.T) {
 			want:      &Version{Major: 1, Minor: 2, Patch: 4},
 		},
 		{
+			name:      "minor from zero major resets patch",
+			v:         &Version{Major: 0, Minor: 0, Patch: 1},
+			component: "minor",
+			want:      &Version{Major: 0, Minor: 1, Patch: 0},
+		},
+		{
+			name:      "major from zero major resets minor and patch",
+			v:         &Version{Major: 0, Minor: 0, Patch: 1},
+			component: "major",
+			want:      &Version{Major: 1, Minor: 0, Patch: 0},
+		},
+		{
 			name:      "invalid",
 			v:         &Version{Major: 1, Minor: 2, Patch: 3},
 			component: "invalid",

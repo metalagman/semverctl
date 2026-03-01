@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -203,6 +204,44 @@ func TestRunBumpFile_JSON(t *testing.T) {
 	}
 	if payload.Result == nil || payload.Result.Changed != 1 {
 		t.Fatalf("payload.Result = %+v, want changed=1", payload.Result)
+	}
+}
+
+func TestRunBumpFile_ZeroMajorResets(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name string
+		flag string
+		want string
+	}{
+		{name: "minor bump resets patch", flag: "minor", want: "0.1.0"},
+		{name: "major bump resets minor and patch", flag: "major", want: "1.0.0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := filepath.Join(tmpDir, strings.ReplaceAll(tt.name, " ", "_")+".json")
+			if err := os.WriteFile(testFile, []byte(`{"version": "0.0.1"}`), 0o644); err != nil {
+				t.Fatalf("write test file: %v", err)
+			}
+
+			cmd := newBumpFileTestCmd()
+			setFlag(t, cmd, tt.flag, "true")
+
+			if err := runBumpFile(cmd, []string{testFile}); err != nil {
+				t.Fatalf("runBumpFile() error = %v", err)
+			}
+
+			got, err := os.ReadFile(testFile)
+			if err != nil {
+				t.Fatalf("read bumped file: %v", err)
+			}
+
+			if !strings.Contains(string(got), `"`+tt.want+`"`) {
+				t.Fatalf("bumped file content = %q, want version %q", string(got), tt.want)
+			}
+		})
 	}
 }
 

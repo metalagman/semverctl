@@ -133,6 +133,32 @@ func TestNextTag(t *testing.T) {
 	}
 }
 
+func TestNextTag_FromZeroMajor(t *testing.T) {
+	svc := newServiceWithRunner(fakeRunner{responses: map[string]fakeResponse{
+		joinArgs([]string{"tag", "--list"}): {out: "v0.0.1\n"},
+	}})
+
+	tests := []struct {
+		component string
+		want      string
+	}{
+		{component: "minor", want: "v0.1.0"},
+		{component: "major", want: "v1.0.0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.component, func(t *testing.T) {
+			got, err := svc.NextTag(tt.component)
+			if err != nil {
+				t.Fatalf("NextTag() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("NextTag() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCreateAnnotatedTag(t *testing.T) {
 	t.Run("exists", func(t *testing.T) {
 		svc := newServiceWithRunner(fakeRunner{responses: map[string]fakeResponse{

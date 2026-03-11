@@ -30,6 +30,9 @@ CLI for bumping and setting SemVer values in JSON/YAML files and Git tags
 ### Quickstart
 
 ```bash
+# Install globally
+npm i -g @metalagman/semverctl@latest
+
 # Bump patch version in package.json
 semverctl bump file package.json
 
@@ -40,7 +43,52 @@ semverctl bump file Chart.yaml --minor
 semverctl bump tag --push
 ```
 
-### Bump File Version
+### Node.js (package.json)
+
+```bash
+# Bump patch in package.json
+semverctl bump file package.json
+
+# Bump major version for a breaking change
+semverctl bump file package.json --major
+
+# Preview what would change without modifying the file
+semverctl bump file package.json --minor --dry-run
+```
+
+### Helm (Chart.yaml)
+
+Helm Charts have two version fields: `version` (the chart version) and `appVersion` (the version of the application contained in the chart).
+
+```bash
+# Bump the Chart version (default .version path)
+semverctl bump file Chart.yaml --patch
+
+# Bump the appVersion explicitly
+semverctl bump file Chart.yaml --minor --path appVersion
+
+# Set the appVersion to a specific value
+semverctl set file 1.2.3 Chart.yaml --path appVersion
+```
+
+### Git Tags
+
+Create and push tags for your releases.
+
+```bash
+# Create and push the next patch tag (e.g., v1.0.1)
+semverctl bump tag --push
+
+# Create the next minor tag (e.g., v1.1.0) without pushing
+semverctl bump tag --minor
+
+# Create an explicit tag and push it
+semverctl set tag v2.0.0 --push
+```
+
+### CLI Reference
+
+#### Bump File Version
 
 Bump the semantic version in a specific JSON or YAML file:
 
@@ -62,7 +110,7 @@ semverctl bump file package.json --dry-run
 semverctl bump file package.json --dry-run --json
 ```
 
-### Set File Version
+#### Set File Version
 
 Set an explicit version value in a specific file:
 
@@ -80,7 +128,7 @@ semverctl set file 1.0.0 package.json --dry-run
 semverctl set file 1.2.3 package.json --json
 ```
 
-### Bump Tag
+#### Bump Tag
 
 Bump from the latest stable git tag (`vX.Y.Z`) and create a new annotated tag:
 
@@ -101,7 +149,7 @@ semverctl bump tag --push
 semverctl bump tag --dry-run --json
 ```
 
-### Set Tag
+#### Set Tag
 
 Create an explicit annotated git tag:
 
@@ -120,7 +168,7 @@ semverctl set tag 2.1.0 --push
 semverctl set tag 2.1.0 --json
 ```
 
-### Numeric Bump
+#### Numeric Bump
 
 For object-style version fields (e.g., `{ "Major": 1, "Minor": 2, "Patch": 3 }`),
 you can bump numeric scalar values:
@@ -130,51 +178,6 @@ semverctl bump file config.json --numeric --path .version.Patch
 ```
 
 This increments the numeric value at the specified path by 1.
-
-## Common Recipes
-
-### Helm (Chart.yaml)
-
-Helm Charts have two version fields: `version` (the chart version) and `appVersion` (the version of the application contained in the chart).
-
-```bash
-# Bump the Chart version (default .version path)
-semverctl bump file Chart.yaml --patch
-
-# Bump the appVersion explicitly
-semverctl bump file Chart.yaml --minor --path appVersion
-
-# Set the appVersion to a specific value
-semverctl set file 1.2.3 Chart.yaml --path appVersion
-```
-
-### Node.js (package.json)
-
-```bash
-# Bump patch in package.json
-semverctl bump file package.json
-
-# Bump major version for a breaking change
-semverctl bump file package.json --major
-
-# Preview what would change without modifying the file
-semverctl bump file package.json --minor --dry-run
-```
-
-### Git Tags
-
-Create and push tags for your releases.
-
-```bash
-# Create and push the next patch tag (e.g., v1.0.1)
-semverctl bump tag --push
-
-# Create the next minor tag (e.g., v1.1.0) without pushing
-semverctl bump tag --minor
-
-# Create an explicit tag and push it
-semverctl set tag v2.0.0 --push
-```
 
 ## Installation
 

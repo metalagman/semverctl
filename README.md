@@ -70,6 +70,19 @@ sha256sum -c checksums.txt
 
 ## Usage
 
+### Quickstart
+
+```bash
+# Bump patch version in package.json
+semverctl bump file package.json
+
+# Bump minor version in Helm Chart.yaml
+semverctl bump file Chart.yaml --minor
+
+# Create a new git tag for the next release
+semverctl bump tag --push
+```
+
 ### Bump File Version
 
 Bump the semantic version in a specific JSON or YAML file:
@@ -160,6 +173,36 @@ semverctl bump file config.json --numeric --path .version.Patch
 ```
 
 This increments the numeric value at the specified path by 1.
+
+## Common Recipes
+
+### Helm (Chart.yaml)
+
+Helm Charts have two version fields: `version` (the chart version) and `appVersion` (the version of the application contained in the chart).
+
+```bash
+# Bump the Chart version (default .version path)
+semverctl bump file Chart.yaml --patch
+
+# Bump the appVersion explicitly
+semverctl bump file Chart.yaml --minor --path appVersion
+
+# Set the appVersion to a specific value
+semverctl set file 1.2.3 Chart.yaml --path appVersion
+```
+
+### Node.js (package.json)
+
+```bash
+# Bump patch in package.json
+semverctl bump file package.json
+
+# Bump major version for a breaking change
+semverctl bump file package.json --major
+
+# Preview what would change without modifying the file
+semverctl bump file package.json --minor --dry-run
+```
 
 ## Path Syntax
 

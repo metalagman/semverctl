@@ -67,8 +67,8 @@ semverctl bump file Chart.yaml --patch
 # Bump the appVersion explicitly
 semverctl bump file Chart.yaml --minor --path appVersion
 
-# Set the appVersion to a specific value
-semverctl set file 1.2.3 Chart.yaml --path appVersion
+# Preview Helm chart changes
+semverctl bump file Chart.yaml --major --dry-run
 ```
 
 ### Git Tags
@@ -82,8 +82,8 @@ semverctl bump tag --push
 # Create the next minor tag (e.g., v1.1.0) without pushing
 semverctl bump tag --minor
 
-# Create an explicit tag and push it
-semverctl set tag v2.0.0 --push
+# Preview tag creation
+semverctl bump tag --major --dry-run
 ```
 
 ### CLI Reference

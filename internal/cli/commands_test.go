@@ -723,3 +723,245 @@ func TestCommandTree(t *testing.T) {
 		}
 	}
 }
+
+func TestSummarizeResults(t *testing.T) {
+	summary := summarizeResults([]app.Result{
+		{Changed: true},
+		{Changed: false},
+		{Error: errors.New("boom")},
+		{Changed: true},
+	})
+
+	if summary.Changed != 2 || summary.Unchanged != 1 || summary.Errors != 1 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+}
+
+func TestLoadBumpFileFlags_Errors(t *testing.T) {
+	t.Run("missing path flag", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error when --path is missing")
+		}
+	})
+
+	t.Run("dry-run wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().String("dry-run", "false", "")
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error on dry-run type mismatch")
+		}
+	})
+
+	t.Run("json wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().String("json", "false", "")
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error on json type mismatch")
+		}
+	})
+
+	t.Run("major wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().Bool("json", false, "")
+		cmd.Flags().String("major", "false", "")
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error on major type mismatch")
+		}
+	})
+
+	t.Run("minor wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().Bool("json", false, "")
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().String("minor", "false", "")
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error on minor type mismatch")
+		}
+	})
+
+	t.Run("patch wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().Bool("json", false, "")
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().Bool("minor", false, "")
+		cmd.Flags().String("patch", "false", "")
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error on patch type mismatch")
+		}
+	})
+
+	t.Run("numeric wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().Bool("json", false, "")
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().Bool("minor", false, "")
+		cmd.Flags().Bool("patch", false, "")
+		cmd.Flags().String("numeric", "false", "")
+		if _, err := loadBumpFileFlags(cmd); err == nil {
+			t.Fatal("loadBumpFileFlags() should error on numeric type mismatch")
+		}
+	})
+}
+
+func TestLoadTagAndSetFlags_MissingFlags(t *testing.T) {
+	t.Run("loadBumpTagFlags missing", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		if _, err := loadBumpTagFlags(cmd); err == nil {
+			t.Fatal("loadBumpTagFlags() should error when required flags are missing")
+		}
+	})
+
+	t.Run("loadSetTagFlags missing", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		if _, err := loadSetTagFlags(cmd); err == nil {
+			t.Fatal("loadSetTagFlags() should error when required flags are missing")
+		}
+	})
+}
+
+func TestLoadBumpTagFlags_ErrorsByFlag(t *testing.T) {
+	t.Run("minor wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().String("minor", "false", "")
+		if _, err := loadBumpTagFlags(cmd); err == nil {
+			t.Fatal("loadBumpTagFlags() should error on minor type mismatch")
+		}
+	})
+
+	t.Run("patch wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().Bool("minor", false, "")
+		cmd.Flags().String("patch", "false", "")
+		if _, err := loadBumpTagFlags(cmd); err == nil {
+			t.Fatal("loadBumpTagFlags() should error on patch type mismatch")
+		}
+	})
+
+	t.Run("push wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().Bool("minor", false, "")
+		cmd.Flags().Bool("patch", false, "")
+		cmd.Flags().String("push", "false", "")
+		if _, err := loadBumpTagFlags(cmd); err == nil {
+			t.Fatal("loadBumpTagFlags() should error on push type mismatch")
+		}
+	})
+
+	t.Run("dry-run wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().Bool("minor", false, "")
+		cmd.Flags().Bool("patch", false, "")
+		cmd.Flags().Bool("push", false, "")
+		cmd.Flags().String("dry-run", "false", "")
+		if _, err := loadBumpTagFlags(cmd); err == nil {
+			t.Fatal("loadBumpTagFlags() should error on dry-run type mismatch")
+		}
+	})
+
+	t.Run("json wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("major", false, "")
+		cmd.Flags().Bool("minor", false, "")
+		cmd.Flags().Bool("patch", false, "")
+		cmd.Flags().Bool("push", false, "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().String("json", "false", "")
+		if _, err := loadBumpTagFlags(cmd); err == nil {
+			t.Fatal("loadBumpTagFlags() should error on json type mismatch")
+		}
+	})
+}
+
+func TestLoadSetTagFlags_ErrorsByFlag(t *testing.T) {
+	t.Run("dry-run wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("push", false, "")
+		cmd.Flags().String("dry-run", "false", "")
+		if _, err := loadSetTagFlags(cmd); err == nil {
+			t.Fatal("loadSetTagFlags() should error on dry-run type mismatch")
+		}
+	})
+
+	t.Run("json wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("push", false, "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().String("json", "false", "")
+		if _, err := loadSetTagFlags(cmd); err == nil {
+			t.Fatal("loadSetTagFlags() should error on json type mismatch")
+		}
+	})
+}
+
+func TestLoadSetFileFlags_ErrorsByFlag(t *testing.T) {
+	t.Run("missing path", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		if _, err := loadSetFileFlags(cmd); err == nil {
+			t.Fatal("loadSetFileFlags() should error when --path is missing")
+		}
+	})
+
+	t.Run("json wrong type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("path", "version", "")
+		cmd.Flags().Bool("dry-run", false, "")
+		cmd.Flags().String("json", "false", "")
+		if _, err := loadSetFileFlags(cmd); err == nil {
+			t.Fatal("loadSetFileFlags() should error on json type mismatch")
+		}
+	})
+}
+
+func TestRunSetFile_ArgCountJSONError(t *testing.T) {
+	cmd := newSetFileTestCmd()
+	setFlag(t, cmd, "json", "true")
+
+	out, err := captureStdout(t, func() error {
+		return runSetFile(cmd, []string{"1.2.3"})
+	})
+	if err == nil {
+		t.Fatal("runSetFile() should error on missing PATH argument")
+	}
+	var payload jsonCommandOutput
+	if unmarshalErr := json.Unmarshal([]byte(out), &payload); unmarshalErr != nil {
+		t.Fatalf("json.Unmarshal() error = %v, out=%q", unmarshalErr, out)
+	}
+	if payload.OK || payload.Error == "" {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
+}
+
+func TestRunBumpFile_ArgCountJSONError(t *testing.T) {
+	cmd := newBumpFileTestCmd()
+	setFlag(t, cmd, "json", "true")
+
+	out, err := captureStdout(t, func() error {
+		return runBumpFile(cmd, nil)
+	})
+	if err == nil {
+		t.Fatal("runBumpFile() should error on missing PATH argument")
+	}
+	var payload jsonCommandOutput
+	if unmarshalErr := json.Unmarshal([]byte(out), &payload); unmarshalErr != nil {
+		t.Fatalf("json.Unmarshal() error = %v, out=%q", unmarshalErr, out)
+	}
+	if payload.OK || payload.Error == "" {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
+}

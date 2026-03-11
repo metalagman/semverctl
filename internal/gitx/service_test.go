@@ -2,6 +2,9 @@ package gitx
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/metalagman/semverctl/internal/semverx"
@@ -132,6 +135,16 @@ func TestNextTag(t *testing.T) {
 				t.Fatalf("NextTag() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNextTag_InvalidComponent(t *testing.T) {
+	svc := newServiceWithRunner(fakeRunner{responses: map[string]fakeResponse{
+		joinArgs([]string{"tag", "--list"}): {out: "v1.2.3\n"},
+	}})
+
+	if _, err := svc.NextTag("invalid"); err == nil {
+		t.Fatal("NextTag() should error on invalid bump component")
 	}
 }
 
@@ -283,6 +296,82 @@ func TestServiceErrors(t *testing.T) {
 		svc := NewService()
 		if _, err := svc.NormalizeTag("  "); err == nil {
 			t.Fatal("NormalizeTag() should return error for empty input")
+		}
+	})
+}
+
+func TestExecGitRunner_Run(t *testing.T) {
+	writeFakeGit := func(t *testing.T, script string) string {
+		t.Helper()
+		dir := t.TempDir()
+		gitPath := filepath.Join(dir, "git")
+		content := "#!/bin/sh\nset -eu\n" + script + "\n"
+		if err := os.WriteFile(gitPath, []byte(content), 0o755); err != nil {
+			t.Fatalf("write fake git: %v", err)
+		}
+		return dir
+	}
+
+	withPath := func(t *testing.T, dir string) {
+		t.Helper()
+		old := os.Getenv("PATH")
+		if err := os.Setenv("PATH", dir+string(os.PathListSeparator)+old); err != nil {
+			t.Fatalf("set PATH: %v", err)
+		}
+		t.Cleanup(func() {
+			_ = os.Setenv("PATH", old)
+		})
+	}
+
+	t.Run("success output", func(t *testing.T) {
+		dir := writeFakeGit(t, "echo ok")
+		withPath(t, dir)
+
+		got, err := (execGitRunner{}).Run("status")
+		if err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+		if strings.TrimSpace(got) != "ok" {
+			t.Fatalf("Run() output = %q, want ok", got)
+		}
+	})
+
+	t.Run("stderr error message", func(t *testing.T) {
+		dir := writeFakeGit(t, "echo bad 1>&2\nexit 2")
+		withPath(t, dir)
+
+		_, err := (execGitRunner{}).Run("status", "--porcelain")
+		if err == nil {
+			t.Fatal("Run() should return error")
+		}
+		if !strings.Contains(err.Error(), "git status --porcelain: bad") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("stdout fallback error message", func(t *testing.T) {
+		dir := writeFakeGit(t, "echo fallback\nexit 2")
+		withPath(t, dir)
+
+		_, err := (execGitRunner{}).Run("tag", "--list")
+		if err == nil {
+			t.Fatal("Run() should return error")
+		}
+		if !strings.Contains(err.Error(), "git tag --list: fallback") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("wrapped error when no output", func(t *testing.T) {
+		dir := writeFakeGit(t, "exit 2")
+		withPath(t, dir)
+
+		_, err := (execGitRunner{}).Run("rev-parse", "HEAD")
+		if err == nil {
+			t.Fatal("Run() should return error")
+		}
+		if !strings.Contains(err.Error(), "git rev-parse HEAD:") {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 }

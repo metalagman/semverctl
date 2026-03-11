@@ -109,6 +109,18 @@ func TestJSONCodec_Errors(t *testing.T) {
 			t.Fatal("GetNumericScalar() should error on non-integer")
 		}
 	})
+
+	t.Run("SetVersion path not found", func(t *testing.T) {
+		if _, err := codec.SetVersion([]byte(`{"version":"1.0.0"}`), []string{"missing"}, "2.0.0"); err == nil {
+			t.Fatal("SetVersion() should error on missing path")
+		}
+	})
+
+	t.Run("SetNumericScalar path not found", func(t *testing.T) {
+		if _, err := codec.SetNumericScalar([]byte(`{"count":1}`), []string{"missing"}, 2); err == nil {
+			t.Fatal("SetNumericScalar() should error on missing path")
+		}
+	})
 }
 
 func TestYAMLCodec_VersionByteExact(t *testing.T) {
@@ -218,6 +230,24 @@ func TestYAMLCodec_Errors(t *testing.T) {
 	t.Run("cannot traverse scalar", func(t *testing.T) {
 		if _, err := codec.GetVersion([]byte("version: 1.0.0\n"), []string{"version", "patch"}); err == nil {
 			t.Fatal("GetVersion() should error when traversing scalar")
+		}
+	})
+
+	t.Run("SetVersion path not found", func(t *testing.T) {
+		if _, err := codec.SetVersion([]byte("version: 1.0.0\n"), []string{"missing"}, "2.0.0"); err == nil {
+			t.Fatal("SetVersion() should error on missing path")
+		}
+	})
+
+	t.Run("SetNumericScalar path not found", func(t *testing.T) {
+		if _, err := codec.SetNumericScalar([]byte("count: 1\n"), []string{"missing"}, 2); err == nil {
+			t.Fatal("SetNumericScalar() should error on missing path")
+		}
+	})
+
+	t.Run("SetNumericScalar non-scalar target", func(t *testing.T) {
+		if _, err := codec.SetNumericScalar([]byte("count:\n  nested: 1\n"), []string{"count"}, 2); err == nil {
+			t.Fatal("SetNumericScalar() should error on non-scalar target")
 		}
 	})
 }

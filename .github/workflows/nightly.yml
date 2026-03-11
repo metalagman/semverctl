@@ -1,0 +1,39 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  test-nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Race tests with coverage
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      # Phase plan: bump to 90%, then 95% after incremental coverage work.
+      - name: Coverage gate (phase 1)
+        env:
+          COVERAGE_MIN: '85'
+        run: ./scripts/coverage_gate.sh coverage.out
+
+      - name: Extended fuzzing
+        run: |
+          go test ./internal/semverx -run=^$ -fuzz=Fuzz -fuzztime=45s
+          go test ./internal/pathx -run=^$ -fuzz=Fuzz -fuzztime=45s
+          go test ./internal/formats -run=^$ -fuzz=FuzzJSONCodecSetVersionRoundTrip -fuzztime=30s
+          go test ./internal/formats -run=^$ -fuzz=FuzzYAMLCodecSetVersionRoundTrip -fuzztime=30s
+
+      - name: Stress pass
+        run: go test -race -count=5 ./...

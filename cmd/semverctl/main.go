@@ -6,9 +6,12 @@ import (
 	"github.com/metalagman/semverctl/internal/cli"
 )
 
+var execute = cli.Execute
+var exit = os.Exit
+
 func main() {
-	err := cli.Execute()
+	err := execute()
 	if err != nil {
-		os.Exit(1)
+		exit(1)
 	}
 }

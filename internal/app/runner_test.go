@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -460,6 +461,88 @@ func TestRunner_Run_Glob(t *testing.T) {
 		err := runner.Run()
 		if err == nil {
 			t.Error("Run() should error on no matches")
+		}
+	})
+}
+
+func TestRunner_Run_ByteExactPreservation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("bump file JSON preserves structure", func(t *testing.T) {
+		original := []byte("{\n  \"name\": \"demo\",\n  \"scripts\": {\"start\": \"node index.js\"},\n  \"version\": \"1.2.3\",\n  \"dependencies\": {\n    \"a\": \"1.0.0\"\n  }\n}\n")
+		file := filepath.Join(tmpDir, "package.json")
+		writeFile(t, file, original)
+
+		runner := NewRunner(&Config{
+			Operation: OpBump,
+			BumpType:  "patch",
+			Path:      []string{"version"},
+			File:      file,
+		})
+		if err := runner.Run(); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+
+		got, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read file: %v", err)
+		}
+
+		want := []byte(strings.Replace(string(original), `"1.2.3"`, `"1.2.4"`, 1))
+		if !bytes.Equal(got, want) {
+			t.Fatalf("unexpected rewritten file\nwant:\n%s\ngot:\n%s", string(want), string(got))
+		}
+	})
+
+	t.Run("set file YAML preserves comments/order", func(t *testing.T) {
+		original := []byte("# chart metadata\napiVersion: v2\nname: demo\n# semver for chart\nversion: 1.2.3\nappVersion: \"1.2.3\"\n")
+		file := filepath.Join(tmpDir, "Chart.yaml")
+		writeFile(t, file, original)
+
+		runner := NewRunner(&Config{
+			Operation: OpSet,
+			Version:   "2.0.0",
+			Path:      []string{"version"},
+			File:      file,
+		})
+		if err := runner.Run(); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+
+		got, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read file: %v", err)
+		}
+
+		want := []byte(strings.Replace(string(original), "version: 1.2.3", "version: 2.0.0", 1))
+		if !bytes.Equal(got, want) {
+			t.Fatalf("unexpected rewritten file\nwant:\n%s\ngot:\n%s", string(want), string(got))
+		}
+	})
+
+	t.Run("numeric bump preserves formatting", func(t *testing.T) {
+		original := []byte("{\n  \"meta\": {\n    \"count\"   :   42\n  }\n}\n")
+		file := filepath.Join(tmpDir, "numeric.json")
+		writeFile(t, file, original)
+
+		runner := NewRunner(&Config{
+			Operation:   OpBump,
+			Path:        []string{"meta", "count"},
+			File:        file,
+			NumericBump: true,
+		})
+		if err := runner.Run(); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+
+		got, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read file: %v", err)
+		}
+
+		want := []byte(strings.Replace(string(original), "42", "43", 1))
+		if !bytes.Equal(got, want) {
+			t.Fatalf("unexpected rewritten file\nwant:\n%s\ngot:\n%s", string(want), string(got))
 		}
 	})
 }

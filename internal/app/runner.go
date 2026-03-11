@@ -172,26 +172,19 @@ func (r *Runner) processFile(file string) Result {
 		return result
 	}
 
-	// Decode
-	doc, err := codec.Decode(data)
-	if err != nil {
-		result.Error = err
-		return result
-	}
-
 	// Process based on operation type
 	if r.config.NumericBump {
-		return r.processNumericBump(file, data, doc, codec)
+		return r.processNumericBump(file, data, codec)
 	}
 
-	return r.processSemver(file, data, doc, codec)
+	return r.processSemver(file, data, codec)
 }
 
-func (r *Runner) processSemver(file string, data []byte, doc any, codec formats.Codec) Result {
+func (r *Runner) processSemver(file string, data []byte, codec formats.Codec) Result {
 	result := Result{File: file}
 
 	// Get current version
-	oldVer, err := codec.GetVersion(doc, r.config.Path)
+	oldVer, err := codec.GetVersion(data, r.config.Path)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to get version: %w", err)
 		return result
@@ -225,16 +218,10 @@ func (r *Runner) processSemver(file string, data []byte, doc any, codec formats.
 	}
 	result.Changed = true
 
-	// Update document
-	if err := codec.SetVersion(doc, r.config.Path, newVer); err != nil {
-		result.Error = fmt.Errorf("failed to set version: %w", err)
-		return result
-	}
-
-	// Encode
-	newData, err := codec.Encode(doc)
+	// Update in place
+	newData, err := codec.SetVersion(data, r.config.Path, newVer)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to encode: %w", err)
+		result.Error = fmt.Errorf("failed to set version: %w", err)
 		return result
 	}
 
@@ -254,11 +241,11 @@ func (r *Runner) processSemver(file string, data []byte, doc any, codec formats.
 	return result
 }
 
-func (r *Runner) processNumericBump(file string, data []byte, doc any, codec formats.Codec) Result {
+func (r *Runner) processNumericBump(file string, data []byte, codec formats.Codec) Result {
 	result := Result{File: file}
 
 	// Get current numeric value
-	oldVal, err := codec.GetNumericScalar(doc, r.config.Path)
+	oldVal, err := codec.GetNumericScalar(data, r.config.Path)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to get numeric value: %w", err)
 		return result
@@ -276,16 +263,10 @@ func (r *Runner) processNumericBump(file string, data []byte, doc any, codec for
 	}
 	result.Changed = true
 
-	// Update document
-	if err := codec.SetNumericScalar(doc, r.config.Path, newVal); err != nil {
-		result.Error = fmt.Errorf("failed to set numeric value: %w", err)
-		return result
-	}
-
-	// Encode
-	newData, err := codec.Encode(doc)
+	// Update in place
+	newData, err := codec.SetNumericScalar(data, r.config.Path, newVal)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to encode: %w", err)
+		result.Error = fmt.Errorf("failed to set numeric value: %w", err)
 		return result
 	}
 

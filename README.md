@@ -25,49 +25,6 @@ CLI for bumping and setting SemVer values in JSON/YAML files and Git tags
 - ⚡ **Zero Dependencies** - Pure Go implementation with no runtime dependencies
 - 📦 **Multiple Distribution Channels** - Go install, npm, uv/PyPI, and GitHub Releases
 
-## Installation
-
-### Go
-
-```bash
-go install github.com/metalagman/semverctl/cmd/semverctl@latest
-```
-
-### npm (Node.js)
-
-```bash
-npx @metalagman/semverctl version
-
-# Or install globally
-npm install -g @metalagman/semverctl
-semverctl version
-```
-
-### uv/Pip (Python)
-
-```bash
-uvx semverctl version
-
-# Or install
-uv pip install semverctl
-semverctl version
-```
-
-### Pre-built Binaries
-
-Download pre-built binaries from [GitHub Releases](https://github.com/metalagman/semverctl/releases):
-
-```bash
-# Linux/macOS
-curl -L https://github.com/metalagman/semverctl/releases/latest/download/semverctl-linux-amd64 -o semverctl
-chmod +x semverctl
-sudo mv semverctl /usr/local/bin/
-
-# Verify checksum (recommended)
-curl -L https://github.com/metalagman/semverctl/releases/latest/download/checksums.txt -o checksums.txt
-sha256sum -c checksums.txt
-```
-
 ## Usage
 
 ### Quickstart
@@ -217,6 +174,49 @@ semverctl bump tag --minor
 
 # Create an explicit tag and push it
 semverctl set tag v2.0.0 --push
+```
+
+## Installation
+
+### Go
+
+```bash
+go install github.com/metalagman/semverctl/cmd/semverctl@latest
+```
+
+### npm (Node.js)
+
+```bash
+npx @metalagman/semverctl version
+
+# Or install globally
+npm install -g @metalagman/semverctl
+semverctl version
+```
+
+### uv/Pip (Python)
+
+```bash
+uvx semverctl version
+
+# Or install
+uv pip install semverctl
+semverctl version
+```
+
+### Pre-built Binaries
+
+Download pre-built binaries from [GitHub Releases](https://github.com/metalagman/semverctl/releases):
+
+```bash
+# Linux/macOS
+curl -L https://github.com/metalagman/semverctl/releases/latest/download/semverctl-linux-amd64 -o semverctl
+chmod +x semverctl
+sudo mv semverctl /usr/local/bin/
+
+# Verify checksum (recommended)
+curl -L https://github.com/metalagman/semverctl/releases/latest/download/checksums.txt -o checksums.txt
+sha256sum -c checksums.txt
 ```
 
 ## Path Syntax

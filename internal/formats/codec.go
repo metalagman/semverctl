@@ -201,6 +201,7 @@ func findJSONValueSpan(data []byte, path []string) (int, int, error) {
 	return findJSONPathInValue(data, start, path, 0)
 }
 
+//nolint:gocognit // Recursive-descent parser keeps state transitions in one place.
 func findJSONPathInValue(data []byte, valueStart int, path []string, depth int) (int, int, error) {
 	valueStart = skipJSONWhitespace(data, valueStart)
 	if valueStart >= len(data) {

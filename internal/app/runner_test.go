@@ -270,6 +270,114 @@ func TestRunner_Run(t *testing.T) {
 			t.Error("Run() should error on invalid semver")
 		}
 	})
+
+	t.Run("unsupported extension", func(t *testing.T) {
+		unsupportedFile := filepath.Join(tmpDir, "test.txt")
+		writeFile(t, unsupportedFile, []byte(`version: 1.0.0`))
+
+		config := &Config{
+			Operation: OpBump,
+			BumpType:  "patch",
+			Path:      []string{"version"},
+			File:      unsupportedFile,
+		}
+		runner := NewRunner(config)
+		err := runner.Run()
+		if err == nil {
+			t.Error("Run() should error on unsupported extension")
+		}
+	})
+
+	t.Run("numeric bump error - non numeric", func(t *testing.T) {
+		nonNumericFile := filepath.Join(tmpDir, "nonnumeric.json")
+		writeFile(t, nonNumericFile, []byte(`{"count": "forty-two"}`))
+
+		config := &Config{
+			Operation:   OpBump,
+			Path:        []string{"count"},
+			File:        nonNumericFile,
+			NumericBump: true,
+		}
+		runner := NewRunner(config)
+		err := runner.Run()
+		if err == nil {
+			t.Error("Run() should error on non-numeric value for numeric bump")
+		}
+	})
+
+	t.Run("bump patch no change", func(t *testing.T) {
+		// This shouldn't really happen with bump, but let's test the logic
+		// Actually, if we set the same version it will be no change.
+		config := &Config{
+			Operation: OpSet,
+			Version:   "1.0.0",
+			Path:      []string{"version"},
+			File:      testFile,
+		}
+		runner := NewRunner(config)
+		results, err := runner.RunWithResults()
+		if err != nil {
+			t.Errorf("RunWithResults() error = %v", err)
+		}
+		if results[0].Changed {
+			t.Error("expected no change")
+		}
+	})
+
+	t.Run("write error", func(t *testing.T) {
+		readOnlyFile := filepath.Join(tmpDir, "readonly.json")
+		writeFile(t, readOnlyFile, []byte(`{"version": "1.0.0"}`))
+		if err := os.Chmod(readOnlyFile, 0o444); err != nil {
+			t.Fatalf("chmod: %v", err)
+		}
+		defer func() { _ = os.Chmod(readOnlyFile, 0o644) }()
+
+		config := &Config{
+			Operation: OpSet,
+			Version:   "2.0.0",
+			Path:      []string{"version"},
+			File:      readOnlyFile,
+		}
+		runner := NewRunner(config)
+		err := runner.Run()
+		if err == nil {
+			t.Error("Run() should error on write failure")
+		}
+	})
+
+	t.Run("numeric bump write error", func(t *testing.T) {
+		readOnlyFile := filepath.Join(tmpDir, "readonly_num.json")
+		writeFile(t, readOnlyFile, []byte(`{"count": 1}`))
+		if err := os.Chmod(readOnlyFile, 0o444); err != nil {
+			t.Fatalf("chmod: %v", err)
+		}
+		defer func() { _ = os.Chmod(readOnlyFile, 0o644) }()
+
+		config := &Config{
+			Operation:   OpBump,
+			Path:        []string{"count"},
+			File:        readOnlyFile,
+			NumericBump: true,
+		}
+		runner := NewRunner(config)
+		err := runner.Run()
+		if err == nil {
+			t.Error("Run() should error on write failure")
+		}
+	})
+}
+
+func TestRunner_Validate_Errors(t *testing.T) {
+	t.Run("unknown operation", func(t *testing.T) {
+		config := &Config{
+			Operation: "invalid",
+			File:      "test.json",
+		}
+		runner := NewRunner(config)
+		if err := runner.validate(); err == nil {
+			t.Error("validate() should error on unknown operation")
+		}
+	})
 }
 
 func TestRunner_RunWithResults(t *testing.T) {

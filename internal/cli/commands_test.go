@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/metalagman/semverctl/internal/app"
 )
 
 func setFlag(t *testing.T, cmd *cobra.Command, name, value string) {
@@ -513,17 +515,142 @@ func TestRunSetTag_JSON(t *testing.T) {
 	}
 }
 
-func TestLoadBumpFileFlagsErrors(t *testing.T) {
+func TestExactNArgsWithHelp(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.Flags().Int("path", 0, "")
-	cmd.Flags().Bool("dry-run", false, "")
-	cmd.Flags().Bool("major", false, "")
-	cmd.Flags().Bool("minor", false, "")
-	cmd.Flags().Bool("patch", false, "")
-	cmd.Flags().Bool("numeric", false, "")
+	validator := ExactNArgsWithHelp(2)
+	if err := validator(cmd, []string{"a", "b"}); err != nil {
+		t.Errorf("ExactNArgsWithHelp() error = %v", err)
+	}
+	if err := validator(cmd, []string{"a"}); err == nil {
+		t.Fatal("ExactNArgsWithHelp() should fail with 1 arg")
+	}
+}
 
-	if _, err := loadBumpFileFlags(cmd); err == nil {
-		t.Fatal("loadBumpFileFlags() should error when path flag has wrong type")
+func TestBestResultError(t *testing.T) {
+	err1 := errors.New("err1")
+	fallback := errors.New("fallback")
+
+	results := []app.Result{
+		{File: "f1", Error: nil},
+		{File: "f2", Error: err1},
+	}
+
+	if err := bestResultError(results, fallback); err != err1 {
+		t.Errorf("bestResultError() = %v, want %v", err, err1)
+	}
+
+	resultsClean := []app.Result{
+		{File: "f1", Error: nil},
+	}
+	if err := bestResultError(resultsClean, fallback); err != fallback {
+		t.Errorf("bestResultError() = %v, want %v", err, fallback)
+	}
+}
+
+func TestLoadBumpTagFlagsErrors(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("major", "true", "")
+	if _, err := loadBumpTagFlags(cmd); err == nil {
+		t.Fatal("loadBumpTagFlags() should error when major flag has wrong type")
+	}
+}
+
+func TestLoadSetTagFlagsErrors(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("push", "true", "")
+	if _, err := loadSetTagFlags(cmd); err == nil {
+		t.Fatal("loadSetTagFlags() should error when push flag has wrong type")
+	}
+}
+
+func TestRunBumpTag_Errors(t *testing.T) {
+	t.Run("NextTag error", func(t *testing.T) {
+		svc := &fakeTagService{nextTagErr: errors.New("next tag error")}
+		useFakeTagService(t, svc)
+		cmd := newBumpTagTestCmd()
+		if err := runBumpTag(cmd, nil); err == nil {
+			t.Fatal("runBumpTag() should fail on NextTag error")
+		}
+	})
+
+	t.Run("CreateAnnotatedTag error", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4", createErr: errors.New("create error")}
+		useFakeTagService(t, svc)
+		cmd := newBumpTagTestCmd()
+		if err := runBumpTag(cmd, nil); err == nil {
+			t.Fatal("runBumpTag() should fail on CreateAnnotatedTag error")
+		}
+	})
+
+	t.Run("PushTag error", func(t *testing.T) {
+		svc := &fakeTagService{nextTag: "v1.2.4", pushErr: errors.New("push error")}
+		useFakeTagService(t, svc)
+		cmd := newBumpTagTestCmd()
+		setFlag(t, cmd, "push", "true")
+		if err := runBumpTag(cmd, nil); err == nil {
+			t.Fatal("runBumpTag() should fail on PushTag error")
+		}
+	})
+}
+
+func TestRunSetTag_Errors(t *testing.T) {
+	t.Run("CreateAnnotatedTag error", func(t *testing.T) {
+		svc := &fakeTagService{normalizedTag: "v1.2.3", createErr: errors.New("create error")}
+		useFakeTagService(t, svc)
+		cmd := newSetTagTestCmd()
+		if err := runSetTag(cmd, []string{"1.2.3"}); err == nil {
+			t.Fatal("runSetTag() should fail on CreateAnnotatedTag error")
+		}
+	})
+
+	t.Run("PushTag error", func(t *testing.T) {
+		svc := &fakeTagService{normalizedTag: "v1.2.3", pushErr: errors.New("push error")}
+		useFakeTagService(t, svc)
+		cmd := newSetTagTestCmd()
+		setFlag(t, cmd, "push", "true")
+		if err := runSetTag(cmd, []string{"1.2.3"}); err == nil {
+			t.Fatal("runSetTag() should fail on PushTag error")
+		}
+	})
+}
+
+func TestRunBumpFile_PathJSONError(t *testing.T) {
+	cmd := newBumpFileTestCmd()
+	setFlag(t, cmd, "json", "true")
+	setFlag(t, cmd, "path", "..")
+
+	out, _ := captureStdout(t, func() error {
+		return runBumpFile(cmd, []string{"test.json"})
+	})
+	var payload jsonCommandOutput
+	_ = json.Unmarshal([]byte(out), &payload)
+	if payload.OK || payload.Error == "" {
+		t.Fatal("runBumpFile() should emit JSON error for invalid path")
+	}
+}
+
+func TestRunSetFile_PathJSONError(t *testing.T) {
+	cmd := newSetFileTestCmd()
+	setFlag(t, cmd, "json", "true")
+	setFlag(t, cmd, "path", "..")
+
+	out, _ := captureStdout(t, func() error {
+		return runSetFile(cmd, []string{"1.2.3", "test.json"})
+	})
+	var payload jsonCommandOutput
+	_ = json.Unmarshal([]byte(out), &payload)
+	if payload.OK || payload.Error == "" {
+		t.Fatal("runSetFile() should emit JSON error for invalid path")
+	}
+}
+
+func TestResolveBumpComponent_Multiple(t *testing.T) {
+	cmd := newBumpTagTestCmd()
+	setFlag(t, cmd, "major", "true")
+	setFlag(t, cmd, "minor", "true")
+
+	if _, err := resolveBumpComponent(cmd, true, true, false); err == nil {
+		t.Fatal("resolveBumpComponent() should error on multiple bump types")
 	}
 }
 

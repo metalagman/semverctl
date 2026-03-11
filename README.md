@@ -204,6 +204,21 @@ semverctl bump file package.json --major
 semverctl bump file package.json --minor --dry-run
 ```
 
+### Git Tags
+
+Create and push tags for your releases.
+
+```bash
+# Create and push the next patch tag (e.g., v1.0.1)
+semverctl bump tag --push
+
+# Create the next minor tag (e.g., v1.1.0) without pushing
+semverctl bump tag --minor
+
+# Create an explicit tag and push it
+semverctl set tag v2.0.0 --push
+```
+
 ## Path Syntax
 
 Paths use dot notation to navigate nested structures:

@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"bytes"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -126,4 +129,35 @@ func TestMinimumNArgsWithHelp(t *testing.T) {
 			t.Fatal("validator should return error when args are missing")
 		}
 	})
+}
+
+func TestExecute_RuntimeErrorDoesNotPrintUsage(t *testing.T) {
+	svc := &fakeTagService{ensureCleanErr: errors.New("repository has uncommitted changes")}
+	useFakeTagService(t, svc)
+
+	oldOut := rootCmd.OutOrStdout()
+	oldErr := rootCmd.ErrOrStderr()
+	defer func() {
+		rootCmd.SetOut(oldOut)
+		rootCmd.SetErr(oldErr)
+		rootCmd.SetArgs(nil)
+	}()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	rootCmd.SetOut(&stdout)
+	rootCmd.SetErr(&stderr)
+	rootCmd.SetArgs([]string{"bump", "tag", "--push"})
+
+	if err := Execute(); err == nil {
+		t.Fatal("Execute() should fail when repository is dirty")
+	}
+
+	errOutput := stderr.String()
+	if !strings.Contains(errOutput, "Error: repository has uncommitted changes") {
+		t.Fatalf("stderr should contain command error, got %q", errOutput)
+	}
+	if strings.Contains(errOutput, "Usage:") {
+		t.Fatalf("stderr should not contain usage for runtime errors, got %q", errOutput)
+	}
 }

@@ -394,6 +394,7 @@ func runBumpFile(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	cmd.SilenceUsage = true
 
 	flags, err := loadBumpFileFlags(cmd)
 	if err != nil {
@@ -479,6 +480,7 @@ func runSetFile(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	cmd.SilenceUsage = true
 
 	flags, err := loadSetFileFlags(cmd)
 	if err != nil {
@@ -541,6 +543,7 @@ func runBumpTag(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	cmd.SilenceUsage = true
 
 	flags, err := loadBumpTagFlags(cmd)
 	if err != nil {
@@ -636,6 +639,7 @@ func runSetTag(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	cmd.SilenceUsage = true
 
 	flags, err := loadSetTagFlags(cmd)
 	if err != nil {
